@@ -1,25 +1,12 @@
 import React, { useState } from 'react';
 import {
   RotateCcw,
-  Maximize2,
   RefreshCw,
   ExternalLink,
   ShieldAlert,
   Smartphone,
-  Layers,
-  Sparkles,
-  Wifi,
-  Battery,
-  Home,
-  ShoppingBag,
-  Heart,
-  User,
-  Radio,
-  Bookmark,
-  Book,
-  Cpu,
 } from 'lucide-react';
-import type { Project, NavigationType } from '../types';
+import type { Project } from '../types';
 
 interface PhonePreviewProps {
   project: Partial<Project>;
@@ -38,37 +25,14 @@ export const PhonePreview: React.FC<PhonePreviewProps> = ({
   const [iframeKey, setIframeKey] = useState(0);
   const [isLoading, setIsLoading] = useState(false);
   const [iframeError, setIframeError] = useState(false);
-  const [activeBottomNav, setActiveBottomNav] = useState(0);
 
   const targetUrl = overrideUrl || project.websiteUrl || 'https://yesufapp.com';
-  const primaryColor = project.primaryColor || '#4F46E5';
   const splashBgColor = project.splashBgColor || '#0F172A';
 
   const handleRefresh = () => {
     setIsLoading(true);
     setIframeKey(prev => prev + 1);
     setTimeout(() => setIsLoading(false), 900);
-  };
-
-  const getNavIcon = (iconName: string) => {
-    switch (iconName) {
-      case 'ShoppingBag':
-        return <ShoppingBag className="w-5 h-5" />;
-      case 'Heart':
-        return <Heart className="w-5 h-5" />;
-      case 'User':
-        return <User className="w-5 h-5" />;
-      case 'Radio':
-        return <Radio className="w-5 h-5" />;
-      case 'Bookmark':
-        return <Bookmark className="w-5 h-5" />;
-      case 'Book':
-        return <Book className="w-5 h-5" />;
-      case 'Cpu':
-        return <Cpu className="w-5 h-5" />;
-      default:
-        return <Home className="w-5 h-5" />;
-    }
   };
 
   return (
@@ -176,73 +140,9 @@ export const PhonePreview: React.FC<PhonePreviewProps> = ({
             deviceMode === 'ios' ? 'rounded-[40px]' : 'rounded-[34px]'
           }`}
         >
-          {/* Status Bar */}
-          {deviceMode === 'ios' ? (
-            <div
-              className="h-10 px-6 pt-1 flex items-center justify-between text-[12px] font-semibold z-20 shrink-0 text-white transition-colors"
-              style={{ backgroundColor: primaryColor }}
-            >
-              <span className="font-sans font-bold tabular-nums">9:41</span>
-              <div className="flex items-center gap-1.5">
-                <span className="text-[10px] font-bold">5G</span>
-                <Wifi className="w-3.5 h-3.5" />
-                <div className="w-5 h-2.5 border border-white/80 rounded-sm p-0.5 flex items-center">
-                  <div className="w-full h-full bg-white rounded-2xs" />
-                </div>
-              </div>
-            </div>
-          ) : (
-            <div
-              className="h-7 px-5 flex items-center justify-between text-[11px] font-medium z-20 shrink-0 text-white transition-colors"
-              style={{ backgroundColor: primaryColor }}
-            >
-              <span className="font-mono tabular-nums">10:42</span>
-              <div className="flex items-center gap-1.5">
-                <Wifi className="w-3.5 h-3.5" />
-                <span className="text-[10px] font-bold">5G</span>
-                <Battery className="w-3.5 h-3.5" />
-              </div>
-            </div>
-          )}
-
           {/* VIEW: LIVE WEB APP */}
           {activeTab === 'live' && (
             <div className="relative flex-1 flex flex-col bg-slate-50 overflow-hidden">
-              {/* Native App Top Header */}
-              <div
-                className="px-4 py-2 flex items-center justify-between text-white shrink-0 shadow-xs"
-                style={{ backgroundColor: primaryColor }}
-              >
-                <div className="flex items-center gap-2 truncate">
-                  {project.iconUrl ? (
-                    <img
-                      src={project.iconUrl}
-                      alt={project.name || 'App icon'}
-                      className="w-5 h-5 rounded-md object-cover"
-                      onError={e => {
-                        (e.target as HTMLElement).style.display = 'none';
-                      }}
-                    />
-                  ) : (
-                    <Smartphone className="w-4 h-4" />
-                  )}
-                  <span className="text-xs font-semibold truncate">
-                    {project.name || (deviceMode === 'ios' ? 'My iOS App' : 'My Android App')}
-                  </span>
-                </div>
-                <div className="flex items-center gap-1">
-                  <span className="text-[9px] uppercase font-bold tracking-wider opacity-80 px-1 py-0.5 bg-black/20 rounded">
-                    {deviceMode === 'ios' ? 'WKWebView' : 'AndroidX'}
-                  </span>
-                  <button
-                    onClick={handleRefresh}
-                    className="p-1 hover:bg-white/10 rounded transition-colors"
-                  >
-                    <RefreshCw className={`w-3.5 h-3.5 ${isLoading ? 'animate-spin' : ''}`} />
-                  </button>
-                </div>
-              </div>
-
               {/* Native Progress Bar */}
               {isLoading && (
                 <div className="h-0.5 w-full bg-indigo-200 overflow-hidden shrink-0">
@@ -294,27 +194,6 @@ export const PhonePreview: React.FC<PhonePreviewProps> = ({
                   </div>
                 )}
               </div>
-
-              {/* Bottom Custom Navigation Bar if configured */}
-              {project.navigationType === 'bottom' && project.navItems && project.navItems.length > 0 && (
-                <div className="h-14 bg-white border-t border-slate-200 px-2 flex items-center justify-around shrink-0 z-10 shadow-xs">
-                  {project.navItems.map((item, index) => {
-                    const isActive = activeBottomNav === index;
-                    return (
-                      <button
-                        key={item.id || index}
-                        onClick={() => setActiveBottomNav(index)}
-                        className={`flex flex-col items-center justify-center flex-1 py-1 transition-colors cursor-pointer ${
-                          isActive ? 'text-indigo-600 font-semibold' : 'text-slate-400 hover:text-slate-600'
-                        }`}
-                      >
-                        {getNavIcon(item.icon)}
-                        <span className="text-[10px] mt-0.5 leading-none">{item.label}</span>
-                      </button>
-                    );
-                  })}
-                </div>
-              )}
             </div>
           )}
 

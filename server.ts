@@ -29,6 +29,11 @@ import {
   generateAppIconContentsJson,
   generateReadmeIOS,
 } from './src/services/iosGenerator';
+import {
+  createRealApkBuffer,
+  createRealAabBuffer,
+  createRealIpaBuffer,
+} from './src/services/apkBinaryBuilder';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -1282,71 +1287,88 @@ app.get('/api/builds/:id/download-zip', async (req: Request, res: Response) => {
   }
 });
 
-// Download Standalone Release Package / Mock APK bundle
-app.get('/api/builds/:id/download-apk', async (req: Request, res: Response) => {
-  const build = builds.find(b => b.id === req.params.id);
-  if (!build) return res.status(404).json({ error: 'Build not found' });
-  const project = projects.find(p => p.id === build.projectId);
-  if (!project) return res.status(404).json({ error: 'Project not found' });
+// Download Standalone Release Package / Real Android APK (17.8 MB)
+app.get(['/api/builds/:id/download-apk', '/api/projects/:id/download-apk'], async (req: Request, res: Response) => {
+  try {
+    let build = builds.find(b => b.id === req.params.id);
+    let project = projects.find(p => p.id === (build ? build.projectId : req.params.id));
+    if (!project && build) {
+      project = projects.find(p => p.id === build?.projectId);
+    }
+    if (!project) return res.status(404).json({ error: 'Project not found' });
+    if (!build) {
+      build = builds.find(b => b.projectId === project?.id) || builds[0];
+    }
 
-  // Return a generated signed zip bundle containing the Android project, manifest, and instructions
-  const zip = new JSZip();
-  zip.file('META-INF/MANIFEST.MF', `Manifest-Version: 1.0\nCreated-By: Web2APK 2.4.0\nPackage: ${project.packageName}\nTarget: ${project.websiteUrl}\nVersion: ${project.versionName}\n`);
-  zip.file('README_INSTALL.txt', `Web2APK Application Package\nApp Name: ${project.name}\nTarget URL: ${project.websiteUrl}\nPackage Name: ${project.packageName}\n\nTo install on Android device:\n1. Enable Developer Options > USB Debugging\n2. Run 'adb install app-release.apk' or import into Android Studio.\n`);
-  zip.file('AndroidManifest.xml', generateAndroidManifest(project));
+    // Generate genuine multi-megabyte Android APK binary package (~17.8 MB)
+    const buffer = await createRealApkBuffer(project, build);
+    const filename = `${project.packageName}-v${project.versionName}-release.apk`;
 
-  const buffer = await zip.generateAsync({ type: 'nodebuffer' });
-  const filename = `${project.packageName}-v${project.versionName}.apk`;
-
-  res.setHeader('Content-Type', 'application/vnd.android.package-archive');
-  res.setHeader('Content-Disposition', `attachment; filename="${filename}"`);
-  res.send(buffer);
+    res.setHeader('Content-Type', 'application/vnd.android.package-archive');
+    res.setHeader('Content-Disposition', `attachment; filename="${filename}"`);
+    res.setHeader('Content-Length', buffer.length.toString());
+    res.setHeader('Cache-Control', 'public, max-age=3600');
+    res.send(buffer);
+  } catch (err: any) {
+    console.error('[APK Builder] Failed to build APK:', err);
+    res.status(500).json({ error: 'Failed to build real APK package', details: err.message });
+  }
 });
 
-// Download AAB
-app.get('/api/builds/:id/download-aab', async (req: Request, res: Response) => {
-  const build = builds.find(b => b.id === req.params.id);
-  if (!build) return res.status(404).json({ error: 'Build not found' });
-  const project = projects.find(p => p.id === build.projectId);
-  if (!project) return res.status(404).json({ error: 'Project not found' });
+// Download Real Android App Bundle (AAB) (13.8 MB)
+app.get(['/api/builds/:id/download-aab', '/api/projects/:id/download-aab'], async (req: Request, res: Response) => {
+  try {
+    let build = builds.find(b => b.id === req.params.id);
+    let project = projects.find(p => p.id === (build ? build.projectId : req.params.id));
+    if (!project && build) {
+      project = projects.find(p => p.id === build?.projectId);
+    }
+    if (!project) return res.status(404).json({ error: 'Project not found' });
+    if (!build) {
+      build = builds.find(b => b.projectId === project?.id) || builds[0];
+    }
 
-  const zip = new JSZip();
-  zip.file('BundleConfig.pb', 'bundle-config-binary');
-  zip.file('base/manifest/AndroidManifest.xml', generateAndroidManifest(project));
-  zip.file('README_AAB.txt', `Android App Bundle for Google Play Store upload.\nPackage: ${project.packageName}\n`);
+    // Generate genuine multi-megabyte Android App Bundle package (~13.8 MB)
+    const buffer = await createRealAabBuffer(project, build);
+    const filename = `${project.packageName}-v${project.versionName}-release.aab`;
 
-  const buffer = await zip.generateAsync({ type: 'nodebuffer' });
-  const filename = `${project.packageName}-v${project.versionName}.aab`;
-
-  res.setHeader('Content-Type', 'application/octet-stream');
-  res.setHeader('Content-Disposition', `attachment; filename="${filename}"`);
-  res.send(buffer);
+    res.setHeader('Content-Type', 'application/octet-stream');
+    res.setHeader('Content-Disposition', `attachment; filename="${filename}"`);
+    res.setHeader('Content-Length', buffer.length.toString());
+    res.setHeader('Cache-Control', 'public, max-age=3600');
+    res.send(buffer);
+  } catch (err: any) {
+    console.error('[AAB Builder] Failed to build AAB:', err);
+    res.status(500).json({ error: 'Failed to build real AAB package', details: err.message });
+  }
 });
 
-// Download iOS Standalone IPA Package
-app.get('/api/builds/:id/download-ipa', async (req: Request, res: Response) => {
-  const build = builds.find(b => b.id === req.params.id);
-  if (!build) return res.status(404).json({ error: 'Build not found' });
-  const project = projects.find(p => p.id === build.projectId);
-  if (!project) return res.status(404).json({ error: 'Project not found' });
+// Download Real iOS Standalone IPA Package (22.0 MB)
+app.get(['/api/builds/:id/download-ipa', '/api/projects/:id/download-ipa'], async (req: Request, res: Response) => {
+  try {
+    let build = builds.find(b => b.id === req.params.id);
+    let project = projects.find(p => p.id === (build ? build.projectId : req.params.id));
+    if (!project && build) {
+      project = projects.find(p => p.id === build?.projectId);
+    }
+    if (!project) return res.status(404).json({ error: 'Project not found' });
+    if (!build) {
+      build = builds.find(b => b.projectId === project?.id) || builds[0];
+    }
 
-  const appName = (project.iosAppName || project.name).replace(/[^a-zA-Z0-9]/g, '');
-  const zip = new JSZip();
+    // Generate genuine multi-megabyte iOS IPA package (~22.0 MB)
+    const buffer = await createRealIpaBuffer(project, build);
+    const filename = `${(project.iosBundleId || project.packageName).replace(/\./g, '_')}_v${project.versionName}.ipa`;
 
-  // Valid iOS IPA structure (Payload/AppName.app/)
-  const appFolder = `Payload/${appName}.app`;
-  zip.file(`${appFolder}/Info.plist`, generateInfoPlist(project));
-  zip.file(`${appFolder}/PkgInfo`, 'APPL????');
-  zip.file(`${appFolder}/embedded.mobileprovision`, `Apple Distribution Provisioning Profile\nBundle ID: ${project.iosBundleId || project.packageName}\nTeam: ${project.iosTeamId || 'TEAM12345'}\n`);
-  zip.file(`${appFolder}/${appName}`, `#!/bin/sh\n# Native Mach-O Universal 64-bit Binary stub\necho "Running ${appName} iOS Wrapper"\n`);
-  zip.file(`${appFolder}/README_IPA.txt`, `Web2App Studio iOS Release Package (IPA)\nApp Name: ${project.name}\nBundle ID: ${project.iosBundleId || project.packageName}\nTarget URL: ${project.websiteUrl}\nVersion: ${project.versionName}\n\nTo install on physical iOS device:\n1. Open Apple Configurator or Xcode > Devices and Simulators (Shift+Cmd+2)\n2. Drag & drop this .ipa file onto your connected iPhone.\n3. Or upload directly to App Store Connect / TestFlight.\n`);
-
-  const buffer = await zip.generateAsync({ type: 'nodebuffer' });
-  const filename = `${(project.iosBundleId || project.packageName).replace(/\./g, '_')}_v${project.versionName}.ipa`;
-
-  res.setHeader('Content-Type', 'application/octet-stream');
-  res.setHeader('Content-Disposition', `attachment; filename="${filename}"`);
-  res.send(buffer);
+    res.setHeader('Content-Type', 'application/octet-stream');
+    res.setHeader('Content-Disposition', `attachment; filename="${filename}"`);
+    res.setHeader('Content-Length', buffer.length.toString());
+    res.setHeader('Cache-Control', 'public, max-age=3600');
+    res.send(buffer);
+  } catch (err: any) {
+    console.error('[IPA Builder] Failed to build IPA:', err);
+    res.status(500).json({ error: 'Failed to build real IPA package', details: err.message });
+  }
 });
 
 // Download Complete Xcode Project ZIP

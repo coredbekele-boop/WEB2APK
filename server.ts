@@ -1490,6 +1490,9 @@ async function startServer() {
     app.use(vite.middlewares);
   } else {
     app.use(express.static(path.resolve(__dirname, 'dist')));
+    app.use('/assets', express.static(path.resolve(__dirname, 'public/assets')));
+    app.use('/src/assets', express.static(path.resolve(__dirname, 'src/assets')));
+    app.use('/public', express.static(path.resolve(__dirname, 'public')));
     app.get('*', (req: Request, res: Response) => {
       res.sendFile(path.resolve(__dirname, 'dist', 'index.html'));
     });

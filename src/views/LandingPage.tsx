@@ -23,6 +23,7 @@ import {
   ChevronRight,
 } from 'lucide-react';
 import type { WebsiteAnalysis } from '../types';
+import heroPhoneImage from '../assets/images/hero_phone_converter_1791222367369.jpg';
 
 interface LandingPageProps {
   onStartWizard: (initialUrl?: string) => void;
@@ -211,9 +212,17 @@ export const LandingPage: React.FC<LandingPageProps> = ({
             <div className="lg:col-span-5 relative">
               <div className="relative rounded-2xl overflow-hidden shadow-2xl border border-slate-200 bg-white">
                 <img
-                  src="/src/assets/images/hero_phone_converter_1791222367369.jpg"
+                  src={heroPhoneImage}
                   alt="Turn any website into an Android App preview"
-                  className="w-full h-auto object-cover"
+                  className="w-full h-auto object-cover block"
+                  loading="eager"
+                  onError={(e) => {
+                    const target = e.currentTarget;
+                    if (!target.dataset.triedFallback) {
+                      target.dataset.triedFallback = 'true';
+                      target.src = '/assets/images/hero_phone_converter_1791222367369.jpg';
+                    }
+                  }}
                 />
                 <div className="absolute inset-0 bg-gradient-to-t from-slate-950/70 via-transparent to-transparent flex items-end p-6">
                   <div className="text-white">

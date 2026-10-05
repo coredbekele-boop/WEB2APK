@@ -1211,10 +1211,16 @@ app.get('/api/builds', (req: Request, res: Response) => {
   res.json({ builds });
 });
 
-app.get('/api/builds/:id', (req: Request, res: Response) => {
+app.get(['/api/builds/:id', '/api/builds/:id/status'], (req: Request, res: Response) => {
   const build = builds.find(b => b.id === req.params.id);
   if (!build) return res.status(404).json({ error: 'Build not found' });
-  res.json({ build });
+  res.json({
+    build,
+    status: build.status,
+    progress: build.progress,
+    currentStage: build.currentStage,
+    logs: build.logs,
+  });
 });
 
 app.get('/api/builds/:id/logs', (req: Request, res: Response) => {

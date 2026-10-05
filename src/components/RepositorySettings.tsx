@@ -17,6 +17,9 @@ import {
   Smartphone,
   Save,
   Unlink,
+  Code2,
+  FileCode,
+  Download,
 } from 'lucide-react';
 import type { Project, GitHubIntegration } from '../types';
 
@@ -47,14 +50,45 @@ export const RepositorySettings: React.FC<RepositorySettingsProps> = ({
 
   const [isSaving, setIsSaving] = useState(false);
   const [isTestingWebhook, setIsTestingWebhook] = useState(false);
-  const [testResult, setTestResult] = useState<{ message: string; buildId?: string; commitHash?: string } | null>(null);
+  const [testCommitMessage, setTestCommitMessage] = useState(
+    `feat(mobile): update navigation and sync v${project.versionName}`
+  );
+  const [testAuthor, setTestAuthor] = useState('developer');
+  const [showTestForm, setShowTestForm] = useState(false);
+  const [activeInstructionTab, setActiveInstructionTab] = useState<'webhook' | 'actions'>('webhook');
+
+  const [testResult, setTestResult] = useState<{
+    message: string;
+    buildId?: string;
+    commitHash?: string;
+  } | null>(null);
+
   const [copiedUrl, setCopiedUrl] = useState(false);
   const [copiedSecret, setCopiedSecret] = useState(false);
+  const [copiedActionYaml, setCopiedActionYaml] = useState(false);
   const [showSecret, setShowSecret] = useState(false);
 
   // Compute full webhook URL
-  const webhookUrl = `${window.location.origin}/api/projects/${project.id}/github-webhook`;
+  const webhookUrl = typeof window !== 'undefined'
+    ? `${window.location.origin}/api/projects/${project.id}/github-webhook`
+    : `/api/projects/${project.id}/github-webhook`;
+
   const secret = existingGithub?.webhookSecret || 'whsec_web2apk_ci_' + project.id.slice(-8);
+
+  // Extract owner and repo for GitHub deep links
+  const extractRepoSlug = (input: string) => {
+    const clean = input.trim().replace(/^https?:\/\/github\.com\//, '').replace(/\.git$/, '');
+    const parts = clean.split('/');
+    if (parts.length >= 2) {
+      return `${parts[0]}/${parts[1]}`;
+    }
+    return clean;
+  };
+
+  const repoSlug = extractRepoSlug(repoUrl);
+  const githubSettingsWebhookUrl = repoSlug.includes('/')
+    ? `https://github.com/${repoSlug}/settings/hooks/new`
+    : null;
 
   const handleSave = async (e?: React.FormEvent) => {
     if (e) e.preventDefault();
@@ -125,8 +159,8 @@ export const RepositorySettings: React.FC<RepositorySettingsProps> = ({
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          commitMessage: `chore(ci): update responsive navigation and icons v${project.versionName}`,
-          author: 'yesuf-dev',
+          commitMessage: testCommitMessage.trim() || `feat(mobile): automated commit build v${project.versionName}`,
+          author: testAuthor.trim() || 'github-committer',
         }),
       });
 
@@ -166,21 +200,51 @@ export const RepositorySettings: React.FC<RepositorySettingsProps> = ({
       alert(`Test webhook error: ${err.message}`);
     } finally {
       setIsTestingWebhook(false);
+      setShowTestForm(false);
     }
   };
 
-  const copyToClipboard = (text: string, type: 'url' | 'secret') => {
+  const copyToClipboard = (text: string, type: 'url' | 'secret' | 'yaml') => {
     navigator.clipboard.writeText(text);
     if (type === 'url') {
       setCopiedUrl(true);
       setTimeout(() => setCopiedUrl(false), 2500);
-    } else {
+    } else if (type === 'secret') {
       setCopiedSecret(true);
       setTimeout(() => setCopiedSecret(false), 2500);
+    } else {
+      setCopiedActionYaml(true);
+      setTimeout(() => setCopiedActionYaml(false), 2500);
     }
   };
 
   const isConnected = Boolean(existingGithub?.enabled && existingGithub?.repository);
+
+  const actionYamlCode = `name: Web2APK Mobile Cloud Build
+on:
+  push:
+    branches: [ ${branch || 'main'} ]
+
+jobs:
+  trigger-build:
+    name: Trigger Automated Android / iOS Build
+    runs-on: ubuntu-latest
+    steps:
+      - name: Send Webhook Payload to Web2APK
+        run: |
+          curl -X POST "${webhookUrl}" \\
+            -H "Content-Type: application/json" \\
+            -H "X-GitHub-Event: push" \\
+            -d '{
+              "ref": "refs/heads/${branch || 'main'}",
+              "repository": { "full_name": "${repoSlug || 'owner/repo'}" },
+              "head_commit": {
+                "id": "\${{ github.sha }}",
+                "message": "\${{ github.event.head_commit.message }}",
+                "author": { "name": "\${{ github.actor }}" }
+              }
+            }'
+`;
 
   return (
     <div className="space-y-6">
@@ -226,21 +290,11 @@ export const RepositorySettings: React.FC<RepositorySettingsProps> = ({
           <div className="flex items-center gap-2 shrink-0">
             <button
               type="button"
-              onClick={handleTestWebhook}
-              disabled={isTestingWebhook}
+              onClick={() => setShowTestForm(!showTestForm)}
               className="inline-flex items-center gap-1.5 px-3.5 py-2 text-xs font-bold text-indigo-700 bg-indigo-50 hover:bg-indigo-100 border border-indigo-200 rounded-xl transition-colors cursor-pointer shadow-2xs"
             >
-              {isTestingWebhook ? (
-                <>
-                  <RefreshCw className="w-3.5 h-3.5 animate-spin" />
-                  <span>Simulating Git Push...</span>
-                </>
-              ) : (
-                <>
-                  <Play className="w-3.5 h-3.5 fill-current" />
-                  <span>Test Push Webhook</span>
-                </>
-              )}
+              <Play className="w-3.5 h-3.5 fill-current" />
+              <span>Simulate Commit Push</span>
             </button>
             <button
               type="button"
@@ -255,6 +309,70 @@ export const RepositorySettings: React.FC<RepositorySettingsProps> = ({
         )}
       </div>
 
+      {/* Simulator / Test Push Form */}
+      {showTestForm && (
+        <div className="p-5 bg-indigo-50/70 border border-indigo-200 rounded-2xl space-y-3 animate-in fade-in">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-2">
+              <Zap className="w-4 h-4 text-indigo-600" />
+              <h4 className="text-xs font-bold text-indigo-950 uppercase tracking-wider">
+                Simulate GitHub Webhook Push Event
+              </h4>
+            </div>
+            <span className="text-[11px] text-indigo-700">Triggers an instant automated build</span>
+          </div>
+
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+            <div>
+              <label className="block text-[11px] font-bold text-slate-700 mb-1">Commit Message</label>
+              <input
+                type="text"
+                value={testCommitMessage}
+                onChange={e => setTestCommitMessage(e.target.value)}
+                className="w-full px-3 py-1.5 text-xs bg-white border border-indigo-200 rounded-lg focus:outline-none focus:ring-1 focus:ring-indigo-500 font-mono"
+              />
+            </div>
+            <div>
+              <label className="block text-[11px] font-bold text-slate-700 mb-1">Committer Name / Handle</label>
+              <input
+                type="text"
+                value={testAuthor}
+                onChange={e => setTestAuthor(e.target.value)}
+                className="w-full px-3 py-1.5 text-xs bg-white border border-indigo-200 rounded-lg focus:outline-none focus:ring-1 focus:ring-indigo-500 font-mono"
+              />
+            </div>
+          </div>
+
+          <div className="flex items-center justify-end gap-2 pt-2">
+            <button
+              type="button"
+              onClick={() => setShowTestForm(false)}
+              className="px-3 py-1.5 text-xs text-slate-600 hover:text-slate-900 cursor-pointer"
+            >
+              Cancel
+            </button>
+            <button
+              type="button"
+              onClick={handleTestWebhook}
+              disabled={isTestingWebhook}
+              className="inline-flex items-center gap-1.5 px-4 py-1.5 text-xs font-bold text-white bg-indigo-600 hover:bg-indigo-700 rounded-lg transition-colors cursor-pointer shadow-xs"
+            >
+              {isTestingWebhook ? (
+                <>
+                  <RefreshCw className="w-3.5 h-3.5 animate-spin" />
+                  <span>Executing Pipeline...</span>
+                </>
+              ) : (
+                <>
+                  <Play className="w-3.5 h-3.5 fill-current" />
+                  <span>Send Test Webhook Push</span>
+                </>
+              )}
+            </button>
+          </div>
+        </div>
+      )}
+
       {/* Test feedback toast/alert */}
       {testResult && (
         <div className="p-4 bg-emerald-50 border border-emerald-200 rounded-xl flex items-start justify-between gap-3 text-emerald-900 text-xs animate-in fade-in">
@@ -264,7 +382,7 @@ export const RepositorySettings: React.FC<RepositorySettingsProps> = ({
               <span className="font-bold block text-sm text-emerald-950">{testResult.message}</span>
               {testResult.commitHash && (
                 <span className="font-mono text-emerald-800 text-[11px] block mt-0.5">
-                  Commit SHA: {testResult.commitHash} · Target: {targetPlatform.toUpperCase()}
+                  Commit SHA: {testResult.commitHash} · Target: {targetPlatform.toUpperCase()} · Auto-Build Triggered
                 </span>
               )}
             </div>
@@ -282,15 +400,28 @@ export const RepositorySettings: React.FC<RepositorySettingsProps> = ({
 
       {/* Configuration Form */}
       <form onSubmit={handleSave} className="bg-white rounded-2xl p-6 border border-slate-200 shadow-xs space-y-6">
-        <h3 className="text-sm font-bold text-slate-900 border-b border-slate-100 pb-3">
-          Repository & Webhook Configuration
-        </h3>
+        <div className="flex items-center justify-between border-b border-slate-100 pb-3">
+          <h3 className="text-sm font-bold text-slate-900">
+            Repository Connection & Automated Trigger Settings
+          </h3>
+          {githubSettingsWebhookUrl && (
+            <a
+              href={githubSettingsWebhookUrl}
+              target="_blank"
+              rel="noreferrer"
+              className="inline-flex items-center gap-1 text-xs font-semibold text-indigo-600 hover:text-indigo-800 cursor-pointer"
+            >
+              <span>Add Webhook on GitHub</span>
+              <ExternalLink className="w-3 h-3" />
+            </a>
+          )}
+        </div>
 
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
           {/* GitHub Repository URL */}
           <div className="space-y-1.5">
             <label className="block text-xs font-semibold text-slate-700">
-              GitHub Repository URL or Slug <span className="text-red-500">*</span>
+              GitHub Repository Slug or URL <span className="text-red-500">*</span>
             </label>
             <div className="relative">
               <div className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400">
@@ -301,19 +432,19 @@ export const RepositorySettings: React.FC<RepositorySettingsProps> = ({
                 required
                 value={repoUrl}
                 onChange={e => setRepoUrl(e.target.value)}
-                placeholder="https://github.com/yesuf/my-web-app or yesuf/my-web-app"
+                placeholder="owner/repo or https://github.com/owner/repo"
                 className="w-full pl-9 pr-3 py-2.5 text-xs bg-slate-50 border border-slate-200 rounded-xl focus:bg-white focus:outline-none focus:ring-2 focus:ring-indigo-500 font-mono text-slate-900"
               />
             </div>
             <p className="text-[11px] text-slate-400">
-              Paste your public or private GitHub repository link.
+              e.g. <code>nordic-living/storefront-web</code> or <code>https://github.com/my-org/my-site</code>
             </p>
           </div>
 
           {/* Target Branch */}
           <div className="space-y-1.5">
             <label className="block text-xs font-semibold text-slate-700">
-              Production Branch <span className="text-red-500">*</span>
+              Target Monitored Branch <span className="text-red-500">*</span>
             </label>
             <input
               type="text"
@@ -324,14 +455,14 @@ export const RepositorySettings: React.FC<RepositorySettingsProps> = ({
               className="w-full px-3 py-2.5 text-xs bg-slate-50 border border-slate-200 rounded-xl focus:bg-white focus:outline-none focus:ring-2 focus:ring-indigo-500 font-mono text-slate-900"
             />
             <p className="text-[11px] text-slate-400">
-              Only push events matching this branch will trigger automated builds (e.g. <code>main</code> or <code>master</code>).
+              Incoming commits to this branch trigger an automatic build (e.g. <code>main</code>, <code>master</code>, or <code>production</code>).
             </p>
           </div>
 
           {/* Target Platform */}
           <div className="space-y-1.5">
             <label className="block text-xs font-semibold text-slate-700">
-              Build Platform on Push
+              Target Output Package on Push
             </label>
             <div className="grid grid-cols-3 gap-2">
               <button
@@ -377,9 +508,9 @@ export const RepositorySettings: React.FC<RepositorySettingsProps> = ({
           <div className="space-y-1.5 flex flex-col justify-center">
             <div className="flex items-center justify-between p-3.5 bg-slate-50 rounded-xl border border-slate-200">
               <div>
-                <span className="text-xs font-bold text-slate-900 block">Auto-build on push</span>
+                <span className="text-xs font-bold text-slate-900 block">Automated Build on Git Push</span>
                 <span className="text-[11px] text-slate-500 block mt-0.5">
-                  Automatically start a cloud build when GitHub pushes code
+                  Start mobile compilation automatically upon receiving a commit
                 </span>
               </div>
               <button
@@ -402,76 +533,135 @@ export const RepositorySettings: React.FC<RepositorySettingsProps> = ({
           </div>
         </div>
 
-        {/* Webhook Endpoint Details Card */}
+        {/* Integration Instructions Tabs: Direct Webhook vs GitHub Actions */}
         <div className="p-4 bg-slate-900 text-white rounded-2xl border border-slate-800 space-y-4">
-          <div className="flex items-center justify-between">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-slate-800 pb-3">
             <div className="flex items-center gap-2">
               <Zap className="w-4 h-4 text-amber-400" />
               <h4 className="text-xs font-bold uppercase tracking-wider text-slate-200">
-                GitHub Webhook Endpoint
+                Setup Options for {repoSlug || project.name}
               </h4>
             </div>
-            <span className="text-[11px] text-slate-400">Ready to receive payloads</span>
-          </div>
 
-          {/* Webhook URL Input */}
-          <div className="space-y-1.5">
-            <div className="flex items-center justify-between text-xs">
-              <span className="text-slate-300 font-medium">Payload URL:</span>
+            <div className="flex items-center gap-1 bg-slate-950 p-1 rounded-lg border border-slate-800">
               <button
                 type="button"
-                onClick={() => copyToClipboard(webhookUrl, 'url')}
-                className="text-[11px] text-indigo-400 hover:text-indigo-300 flex items-center gap-1 font-semibold cursor-pointer"
+                onClick={() => setActiveInstructionTab('webhook')}
+                className={`px-2.5 py-1 text-xs font-semibold rounded-md transition-colors cursor-pointer ${
+                  activeInstructionTab === 'webhook'
+                    ? 'bg-indigo-600 text-white'
+                    : 'text-slate-400 hover:text-white'
+                }`}
               >
-                {copiedUrl ? <Check className="w-3.5 h-3.5 text-emerald-400" /> : <Copy className="w-3.5 h-3.5" />}
-                <span>{copiedUrl ? 'Copied URL!' : 'Copy Payload URL'}</span>
+                GitHub Webhook (Recommended)
+              </button>
+              <button
+                type="button"
+                onClick={() => setActiveInstructionTab('actions')}
+                className={`px-2.5 py-1 text-xs font-semibold rounded-md transition-colors cursor-pointer ${
+                  activeInstructionTab === 'actions'
+                    ? 'bg-indigo-600 text-white'
+                    : 'text-slate-400 hover:text-white'
+                }`}
+              >
+                GitHub Actions Workflow
               </button>
             </div>
-            <div className="p-2.5 bg-slate-950 border border-slate-800 rounded-xl font-mono text-xs text-indigo-300 truncate select-all">
-              {webhookUrl}
-            </div>
           </div>
 
-          {/* Webhook Secret */}
-          <div className="space-y-1.5">
-            <div className="flex items-center justify-between text-xs">
-              <span className="text-slate-300 font-medium">Webhook Secret (HMAC SHA-256):</span>
-              <div className="flex items-center gap-3">
-                <button
-                  type="button"
-                  onClick={() => setShowSecret(!showSecret)}
-                  className="text-[11px] text-slate-400 hover:text-slate-200 flex items-center gap-1 cursor-pointer"
-                >
-                  {showSecret ? <EyeOff className="w-3 h-3" /> : <Eye className="w-3 h-3" />}
-                  <span>{showSecret ? 'Hide' : 'Show'}</span>
-                </button>
-                <button
-                  type="button"
-                  onClick={() => copyToClipboard(secret, 'secret')}
-                  className="text-[11px] text-indigo-400 hover:text-indigo-300 flex items-center gap-1 font-semibold cursor-pointer"
-                >
-                  {copiedSecret ? <Check className="w-3.5 h-3.5 text-emerald-400" /> : <Copy className="w-3.5 h-3.5" />}
-                  <span>{copiedSecret ? 'Copied Secret!' : 'Copy Secret'}</span>
-                </button>
+          {activeInstructionTab === 'webhook' ? (
+            <div className="space-y-4">
+              {/* Webhook URL Input */}
+              <div className="space-y-1.5">
+                <div className="flex items-center justify-between text-xs">
+                  <span className="text-slate-300 font-medium">Payload URL:</span>
+                  <button
+                    type="button"
+                    onClick={() => copyToClipboard(webhookUrl, 'url')}
+                    className="text-[11px] text-indigo-400 hover:text-indigo-300 flex items-center gap-1 font-semibold cursor-pointer"
+                  >
+                    {copiedUrl ? <Check className="w-3.5 h-3.5 text-emerald-400" /> : <Copy className="w-3.5 h-3.5" />}
+                    <span>{copiedUrl ? 'Copied URL!' : 'Copy Payload URL'}</span>
+                  </button>
+                </div>
+                <div className="p-2.5 bg-slate-950 border border-slate-800 rounded-xl font-mono text-xs text-indigo-300 truncate select-all">
+                  {webhookUrl}
+                </div>
+              </div>
+
+              {/* Webhook Secret */}
+              <div className="space-y-1.5">
+                <div className="flex items-center justify-between text-xs">
+                  <span className="text-slate-300 font-medium">Webhook Secret (HMAC SHA-256):</span>
+                  <div className="flex items-center gap-3">
+                    <button
+                      type="button"
+                      onClick={() => setShowSecret(!showSecret)}
+                      className="text-[11px] text-slate-400 hover:text-slate-200 flex items-center gap-1 cursor-pointer"
+                    >
+                      {showSecret ? <EyeOff className="w-3 h-3" /> : <Eye className="w-3 h-3" />}
+                      <span>{showSecret ? 'Hide' : 'Show'}</span>
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => copyToClipboard(secret, 'secret')}
+                      className="text-[11px] text-indigo-400 hover:text-indigo-300 flex items-center gap-1 font-semibold cursor-pointer"
+                    >
+                      {copiedSecret ? <Check className="w-3.5 h-3.5 text-emerald-400" /> : <Copy className="w-3.5 h-3.5" />}
+                      <span>{copiedSecret ? 'Copied Secret!' : 'Copy Secret'}</span>
+                    </button>
+                  </div>
+                </div>
+                <div className="p-2.5 bg-slate-950 border border-slate-800 rounded-xl font-mono text-xs text-slate-300 flex items-center justify-between">
+                  <span>{showSecret ? secret : '••••••••••••••••••••••••••••••••'}</span>
+                </div>
+              </div>
+
+              {/* Step-by-step checklist */}
+              <div className="pt-2 border-t border-slate-800/80 text-xs text-slate-300 space-y-2">
+                <div className="flex items-center justify-between">
+                  <p className="font-semibold text-slate-200">How to add in GitHub repository settings:</p>
+                  {githubSettingsWebhookUrl && (
+                    <a
+                      href={githubSettingsWebhookUrl}
+                      target="_blank"
+                      rel="noreferrer"
+                      className="inline-flex items-center gap-1 text-xs text-amber-400 hover:text-amber-300 font-bold"
+                    >
+                      <span>Open {repoSlug} Settings &rarr;</span>
+                      <ExternalLink className="w-3 h-3" />
+                    </a>
+                  )}
+                </div>
+                <ol className="list-decimal pl-4 space-y-1 text-slate-400 text-[11px] leading-relaxed">
+                  <li>Navigate to <strong>GitHub &rarr; Settings &rarr; Webhooks &rarr; Add webhook</strong>.</li>
+                  <li>Paste the <strong>Payload URL</strong> into the Payload URL field.</li>
+                  <li>Set <strong>Content type</strong> to <code>application/json</code>.</li>
+                  <li>Paste the <strong>Secret</strong> token into the Secret field.</li>
+                  <li>Select <strong>Just the push event</strong> and click <strong>Add webhook</strong>.</li>
+                </ol>
               </div>
             </div>
-            <div className="p-2.5 bg-slate-950 border border-slate-800 rounded-xl font-mono text-xs text-slate-300 flex items-center justify-between">
-              <span>{showSecret ? secret : '••••••••••••••••••••••••••••••••'}</span>
+          ) : (
+            <div className="space-y-3">
+              <div className="flex items-center justify-between text-xs">
+                <span className="text-slate-300 font-medium">
+                  Create <code>.github/workflows/web2apk.yml</code> in your repository:
+                </span>
+                <button
+                  type="button"
+                  onClick={() => copyToClipboard(actionYamlCode, 'yaml')}
+                  className="text-[11px] text-indigo-400 hover:text-indigo-300 flex items-center gap-1 font-semibold cursor-pointer"
+                >
+                  {copiedActionYaml ? <Check className="w-3.5 h-3.5 text-emerald-400" /> : <Copy className="w-3.5 h-3.5" />}
+                  <span>{copiedActionYaml ? 'Copied Workflow YAML!' : 'Copy Workflow YAML'}</span>
+                </button>
+              </div>
+              <pre className="p-3 bg-slate-950 border border-slate-800 rounded-xl font-mono text-[11px] text-emerald-400 overflow-x-auto">
+                {actionYamlCode}
+              </pre>
             </div>
-          </div>
-
-          {/* GitHub Setup Instructions Accordion */}
-          <div className="pt-2 border-t border-slate-800/80 text-xs text-slate-300 space-y-1.5">
-            <p className="font-semibold text-slate-200">How to add this Webhook in GitHub:</p>
-            <ol className="list-decimal pl-4 space-y-1 text-slate-400 text-[11px] leading-relaxed">
-              <li>Open your repository on GitHub and click <strong>Settings &rarr; Webhooks &rarr; Add webhook</strong>.</li>
-              <li>Paste the <strong>Payload URL</strong> above.</li>
-              <li>Set <strong>Content type</strong> to <code>application/json</code>.</li>
-              <li>Paste the <strong>Secret</strong> token above.</li>
-              <li>Under "Which events would you like to trigger this webhook?", select <strong>Just the push event</strong>.</li>
-              <li>Click <strong>Add webhook</strong>. Whenever you push code, a new mobile build will be automatically compiled!</li>
-            </ol>
-          </div>
+          )}
         </div>
 
         {/* Action Buttons */}
@@ -482,7 +672,7 @@ export const RepositorySettings: React.FC<RepositorySettingsProps> = ({
             className="inline-flex items-center gap-2 px-5 py-2.5 text-xs font-bold text-white bg-indigo-600 hover:bg-indigo-700 rounded-xl transition-all shadow-sm cursor-pointer disabled:opacity-50"
           >
             {isSaving ? <RefreshCw className="w-4 h-4 animate-spin" /> : <Save className="w-4 h-4" />}
-            <span>Save Repository Settings</span>
+            <span>Save Repository Connection</span>
           </button>
         </div>
       </form>
@@ -492,10 +682,10 @@ export const RepositorySettings: React.FC<RepositorySettingsProps> = ({
         <div className="flex items-center justify-between border-b border-slate-100 pb-3">
           <div className="flex items-center gap-2">
             <Clock className="w-4 h-4 text-slate-500" />
-            <h3 className="text-sm font-bold text-slate-900">Recent Webhook Deliveries & Pushes</h3>
+            <h3 className="text-sm font-bold text-slate-900">Recent Webhook Deliveries & Automated Builds</h3>
           </div>
           <span className="text-xs text-slate-500">
-            {existingGithub?.deliveries?.length || 0} deliveries logged
+            {existingGithub?.deliveries?.length || 0} deliveries recorded
           </span>
         </div>
 
@@ -508,8 +698,8 @@ export const RepositorySettings: React.FC<RepositorySettingsProps> = ({
                   <th className="pb-2.5">Commit</th>
                   <th className="pb-2.5">Branch</th>
                   <th className="pb-2.5">Author</th>
-                  <th className="pb-2.5">Time</th>
-                  <th className="pb-2.5 text-right pr-2">Build Action</th>
+                  <th className="pb-2.5">Delivered</th>
+                  <th className="pb-2.5 text-right pr-2">Build Artifact</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-100 font-normal text-slate-700">
@@ -535,16 +725,25 @@ export const RepositorySettings: React.FC<RepositorySettingsProps> = ({
                       {new Date(del.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
                     </td>
                     <td className="py-3 text-right pr-2">
-                      {del.buildId && onNavigateToBuild ? (
-                        <button
-                          onClick={() => onNavigateToBuild(del.buildId!)}
-                          className="text-xs font-bold text-indigo-600 hover:text-indigo-800 hover:underline"
+                      <div className="inline-flex items-center gap-2">
+                        {del.buildId && onNavigateToBuild && (
+                          <button
+                            onClick={() => onNavigateToBuild(del.buildId!)}
+                            className="text-xs font-bold text-indigo-600 hover:text-indigo-800 hover:underline cursor-pointer"
+                          >
+                            Build Logs &rarr;
+                          </button>
+                        )}
+                        <a
+                          href={`/api/builds/${del.buildId || 'build_release'}/download-apk`}
+                          download
+                          className="inline-flex items-center gap-1 px-2.5 py-1 text-[11px] font-bold text-slate-700 bg-slate-100 hover:bg-slate-200 rounded-lg transition-colors cursor-pointer"
+                          title="Download real Android APK generated for this commit (~17.8 MB)"
                         >
-                          View {del.buildId}
-                        </button>
-                      ) : (
-                        <span className="text-slate-400 text-[11px]">Queued</span>
-                      )}
+                          <Download className="w-3 h-3 text-emerald-600" />
+                          <span>APK</span>
+                        </a>
+                      </div>
                     </td>
                   </tr>
                 ))}
@@ -556,7 +755,7 @@ export const RepositorySettings: React.FC<RepositorySettingsProps> = ({
             <GitBranch className="w-8 h-8 text-slate-300 mx-auto mb-2" />
             <p className="font-medium text-slate-600">No Webhook Deliveries Yet</p>
             <p className="mt-1">
-              Configure the webhook in your GitHub repository or click "Test Push Webhook" above to verify.
+              Configure the webhook in your GitHub repository or click "Simulate Commit Push" above to test the automated build pipeline.
             </p>
           </div>
         )}

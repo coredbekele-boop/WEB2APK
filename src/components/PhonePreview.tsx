@@ -1,12 +1,25 @@
 import React, { useState } from 'react';
 import {
   RotateCcw,
+  Maximize2,
   RefreshCw,
   ExternalLink,
   ShieldAlert,
   Smartphone,
+  Layers,
+  Sparkles,
+  Wifi,
+  Battery,
+  Home,
+  ShoppingBag,
+  Heart,
+  User,
+  Radio,
+  Bookmark,
+  Book,
+  Cpu,
 } from 'lucide-react';
-import type { Project } from '../types';
+import type { Project, NavigationType } from '../types';
 
 interface PhonePreviewProps {
   project: Partial<Project>;
@@ -25,14 +38,37 @@ export const PhonePreview: React.FC<PhonePreviewProps> = ({
   const [iframeKey, setIframeKey] = useState(0);
   const [isLoading, setIsLoading] = useState(false);
   const [iframeError, setIframeError] = useState(false);
+  const [activeBottomNav, setActiveBottomNav] = useState(0);
 
   const targetUrl = overrideUrl || project.websiteUrl || 'https://yesufapp.com';
+  const primaryColor = project.primaryColor || '#4F46E5';
   const splashBgColor = project.splashBgColor || '#0F172A';
 
   const handleRefresh = () => {
     setIsLoading(true);
     setIframeKey(prev => prev + 1);
     setTimeout(() => setIsLoading(false), 900);
+  };
+
+  const getNavIcon = (iconName: string) => {
+    switch (iconName) {
+      case 'ShoppingBag':
+        return <ShoppingBag className="w-5 h-5" />;
+      case 'Heart':
+        return <Heart className="w-5 h-5" />;
+      case 'User':
+        return <User className="w-5 h-5" />;
+      case 'Radio':
+        return <Radio className="w-5 h-5" />;
+      case 'Bookmark':
+        return <Bookmark className="w-5 h-5" />;
+      case 'Book':
+        return <Book className="w-5 h-5" />;
+      case 'Cpu':
+        return <Cpu className="w-5 h-5" />;
+      default:
+        return <Home className="w-5 h-5" />;
+    }
   };
 
   return (

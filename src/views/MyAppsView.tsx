@@ -14,6 +14,7 @@ import {
   CheckCircle2,
   Clock,
   Sparkles,
+  GitBranch,
 } from 'lucide-react';
 import type { Project } from '../types';
 
@@ -183,6 +184,27 @@ export const MyAppsView: React.FC<MyAppsViewProps> = ({
                   <span className="text-slate-500 bg-slate-50 px-2 py-0.5 rounded border border-slate-200 capitalize">
                     {proj.navigationType} Nav
                   </span>
+                  {proj.github?.enabled ? (
+                    <span
+                      className="inline-flex items-center gap-1 font-semibold text-slate-800 bg-slate-100 px-2 py-0.5 rounded-full border border-slate-300"
+                      title={`Connected to ${proj.github.repository} (${proj.github.branch || 'main'})`}
+                    >
+                      <GitBranch className="w-3 h-3 text-emerald-600" />
+                      <span>CI Active</span>
+                    </span>
+                  ) : (
+                    <button
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        onOpenProject(proj.id);
+                      }}
+                      className="inline-flex items-center gap-1 text-[10px] text-slate-500 hover:text-indigo-600 bg-slate-50 hover:bg-slate-100 px-1.5 py-0.5 rounded border border-dashed border-slate-300 transition-colors cursor-pointer"
+                      title="Connect GitHub repository for automated builds on push"
+                    >
+                      <GitBranch className="w-2.5 h-2.5" />
+                      <span>+ GitHub CI</span>
+                    </button>
+                  )}
                 </div>
               </div>
 
@@ -287,7 +309,18 @@ export const MyAppsView: React.FC<MyAppsViewProps> = ({
                   <td className="py-3 px-6 font-mono text-slate-500">{proj.packageName}</td>
                   <td className="py-3 px-6 font-mono">v{proj.versionName}</td>
                   <td className="py-3 px-6">
-                    <span className="font-semibold text-emerald-600">Ready</span>
+                    <div className="flex items-center gap-1.5">
+                      <span className="font-semibold text-emerald-600">Ready</span>
+                      {proj.github?.enabled && (
+                        <span
+                          className="inline-flex items-center gap-0.5 text-[10px] font-bold text-slate-700 bg-slate-100 px-1.5 py-0.5 rounded border border-slate-200"
+                          title={`GitHub CI connected: ${proj.github.repository}`}
+                        >
+                          <GitBranch className="w-2.5 h-2.5 text-emerald-600" />
+                          <span>CI</span>
+                        </span>
+                      )}
+                    </div>
                   </td>
                   <td className="py-3 px-6 text-right">
                     <div className="flex items-center justify-end gap-1.5">

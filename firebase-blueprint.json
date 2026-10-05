@@ -1,0 +1,81 @@
+{
+  "entities": {
+    "User": {
+      "title": "User",
+      "description": "Registered user profile and subscription tier",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string", "description": "Unique user ID matching auth.uid" },
+        "name": { "type": "string", "maxLength": 100, "description": "Full name" },
+        "email": { "type": "string", "format": "email", "maxLength": 150, "description": "Email address" },
+        "avatar": { "type": "string", "maxLength": 500, "description": "Avatar photo URL" },
+        "plan": { "type": "string", "enum": ["starter", "pro", "enterprise"], "description": "Plan tier" },
+        "role": { "type": "string", "enum": ["user", "admin"], "description": "User role" },
+        "createdAt": { "type": "string", "description": "Creation timestamp" }
+      },
+      "required": ["id", "email"]
+    },
+    "Project": {
+      "title": "Project",
+      "description": "Mobile application project configuration converted from website",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string", "maxLength": 128, "description": "Project ID" },
+        "userId": { "type": "string", "maxLength": 128, "description": "Owner user UID" },
+        "name": { "type": "string", "maxLength": 100, "description": "App display name" },
+        "websiteUrl": { "type": "string", "maxLength": 500, "description": "Target website URL" },
+        "packageName": { "type": "string", "maxLength": 120, "description": "Android package name" },
+        "description": { "type": "string", "maxLength": 1000, "description": "App description" },
+        "iconUrl": { "type": "string", "maxLength": 500, "description": "App icon URL" },
+        "splashUrl": { "type": "string", "maxLength": 500, "description": "Splash screen URL" },
+        "primaryColor": { "type": "string", "maxLength": 20, "description": "Brand primary hex color" },
+        "secondaryColor": { "type": "string", "maxLength": 20, "description": "Accent hex color" },
+        "splashBgColor": { "type": "string", "maxLength": 20, "description": "Splash background color" },
+        "navigationType": { "type": "string", "enum": ["none", "bottom", "tabs", "drawer"], "description": "Native navigation style" },
+        "orientation": { "type": "string", "enum": ["portrait", "landscape", "sensor", "all"], "description": "Display orientation" },
+        "versionName": { "type": "string", "maxLength": 20, "description": "Version string" },
+        "versionCode": { "type": "number", "description": "Integer version code" },
+        "minSdkVersion": { "type": "number", "description": "Minimum Android SDK" },
+        "targetSdkVersion": { "type": "number", "description": "Target Android SDK" },
+        "status": { "type": "string", "enum": ["draft", "ready", "building", "error"], "description": "Project status" },
+        "lastBuildId": { "type": "string", "maxLength": 128, "description": "Last triggered build ID" },
+        "createdAt": { "type": "string", "description": "Created timestamp" },
+        "updatedAt": { "type": "string", "description": "Updated timestamp" }
+      },
+      "required": ["id", "userId", "name", "websiteUrl", "packageName"]
+    },
+    "Build": {
+      "title": "Build",
+      "description": "Android APK/AAB or Apple iOS IPA compilation job",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string", "maxLength": 128, "description": "Unique build job ID" },
+        "projectId": { "type": "string", "maxLength": 128, "description": "Associated project ID" },
+        "userId": { "type": "string", "maxLength": 128, "description": "Initiator user UID" },
+        "appName": { "type": "string", "maxLength": 100, "description": "Application title" },
+        "packageName": { "type": "string", "maxLength": 120, "description": "Package identifier" },
+        "platform": { "type": "string", "enum": ["android", "ios"], "description": "Target OS" },
+        "buildType": { "type": "string", "enum": ["apk", "aab", "bundle", "ipa", "xcarchive", "ios_source"], "description": "Package format" },
+        "status": { "type": "string", "enum": ["queued", "building", "success", "failed"], "description": "Build pipeline status" },
+        "progress": { "type": "number", "description": "Percentage progress 0-100" },
+        "startedAt": { "type": "string", "description": "Build start ISO date" },
+        "completedAt": { "type": "string", "description": "Build completion ISO date" }
+      },
+      "required": ["id", "projectId", "userId", "platform", "buildType", "status"]
+    }
+  },
+  "firestore": {
+    "/users/{userId}": {
+      "schema": { "$ref": "#/entities/User" },
+      "description": "Private user profiles"
+    },
+    "/projects/{projectId}": {
+      "schema": { "$ref": "#/entities/Project" },
+      "description": "User mobile app projects"
+    },
+    "/builds/{buildId}": {
+      "schema": { "$ref": "#/entities/Build" },
+      "description": "Build job logs and artifact records"
+    }
+  }
+}

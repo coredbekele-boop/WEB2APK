@@ -1,0 +1,8 @@
+{
+  "name": "web2apk",
+  "description": "Enterprise SaaS platform to convert any website into a high-performance Android APK and AAB with native WebView, custom branding, and automated build pipelines.",
+  "requestFramePermissions": [],
+  "majorCapabilities": [
+    "MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"
+  ]
+}

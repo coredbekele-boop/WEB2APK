@@ -17,8 +17,12 @@ import {
   RefreshCw,
   Sparkles,
   Lock,
+  ShieldCheck,
+  Key,
+  KeyRound,
+  Check,
 } from 'lucide-react';
-import type { Project, NavigationType, NavItem, WebsiteAnalysis } from '../types';
+import type { Project, NavigationType, NavItem, WebsiteAnalysis, SigningConfig, SigningValidationResult } from '../types';
 import { PhonePreview } from '../components/PhonePreview';
 
 interface CreateAppWizardProps {
@@ -95,6 +99,85 @@ export const CreateAppWizard: React.FC<CreateAppWizardProps> = ({
   const [iosAppName, setIosAppName] = useState('');
 
   const [buildType, setBuildType] = useState<'apk' | 'bundle' | 'ipa'>('apk');
+
+  // Keystore & Code Signing Configuration State
+  const [signingType, setSigningType] = useState<'managed' | 'custom'>('managed');
+  const [keystoreFileName, setKeystoreFileName] = useState('');
+  const [keystoreBase64, setKeystoreBase64] = useState('');
+  const [keystorePassword, setKeystorePassword] = useState('');
+  const [keyAlias, setKeyAlias] = useState('release');
+  const [keyPassword, setKeyPassword] = useState('');
+  const [isValidatingKeystore, setIsValidatingKeystore] = useState(false);
+  const [keystoreValidation, setKeystoreValidation] = useState<SigningValidationResult | null>(null);
+  const [keystoreValidationError, setKeystoreValidationError] = useState<string | null>(null);
+
+  const handleKeystoreUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    setKeystoreFileName(file.name);
+    setKeystoreValidation(null);
+    setKeystoreValidationError(null);
+
+    const reader = new FileReader();
+    reader.onload = () => {
+      const res = reader.result as string;
+      const b64 = res.split(',')[1] || res;
+      setKeystoreBase64(b64);
+    };
+    reader.readAsDataURL(file);
+  };
+
+  const handleValidateKeystore = async (): Promise<boolean> => {
+    setIsValidatingKeystore(true);
+    setKeystoreValidationError(null);
+    setKeystoreValidation(null);
+
+    try {
+      if (signingType === 'custom') {
+        if (!keystoreBase64) {
+          setKeystoreValidationError('Please upload a keystore file (.jks, .keystore, .p12, .pem).');
+          setIsValidatingKeystore(false);
+          return false;
+        }
+        if (!keystorePassword) {
+          setKeystoreValidationError('Please enter the keystore password.');
+          setIsValidatingKeystore(false);
+          return false;
+        }
+      }
+
+      const res = await fetch('/api/keystore/validate', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          type: signingType,
+          keystoreBase64: signingType === 'custom' ? keystoreBase64 : undefined,
+          keystorePassword: signingType === 'custom' ? keystorePassword : undefined,
+          keyAlias: signingType === 'custom' ? keyAlias : undefined,
+          keyPassword: signingType === 'custom' ? keyPassword : undefined,
+        }),
+      });
+
+      const data = await res.json();
+      if (!res.ok || !data.valid) {
+        const errorMsg = data.error || data.details || 'Keystore verification failed';
+        setKeystoreValidationError(errorMsg);
+        setKeystoreValidation(null);
+        return false;
+      }
+
+      setKeystoreValidation(data);
+      setKeystoreValidationError(null);
+      return true;
+    } catch (err: any) {
+      const errorMsg = err.message || 'Validation request failed';
+      setKeystoreValidationError(errorMsg);
+      setKeystoreValidation(null);
+      return false;
+    } finally {
+      setIsValidatingKeystore(false);
+    }
+  };
 
   // Run analysis if initialUrl provided
   useEffect(() => {
@@ -182,9 +265,42 @@ export const CreateAppWizard: React.FC<CreateAppWizardProps> = ({
       return;
     }
 
+    // VALIDATION CHECK: Verify uploaded keystore or signing configuration is valid before sending job to worker
+    if (signingType === 'custom') {
+      if (!keystoreBase64) {
+        setKeystoreValidationError('Custom code signing requires an uploaded keystore file (.jks, .keystore, .p12, .pem).');
+        setCurrentStep(7);
+        return;
+      }
+      if (!keystorePassword) {
+        setKeystoreValidationError('Please provide the keystore password before submitting the build job.');
+        setCurrentStep(7);
+        return;
+      }
+
+      setIsSubmitting(true);
+      const isKeystoreValid = await handleValidateKeystore();
+      if (!isKeystoreValid) {
+        setIsSubmitting(false);
+        setCurrentStep(7);
+        return;
+      }
+    }
+
     setIsSubmitting(true);
 
     try {
+      const signingConfigData: SigningConfig = {
+        type: signingType,
+        keystoreFile: keystoreFileName || undefined,
+        keystoreBase64: signingType === 'custom' ? keystoreBase64 : undefined,
+        keystorePassword: signingType === 'custom' ? keystorePassword : undefined,
+        keyAlias: signingType === 'custom' ? keyAlias : undefined,
+        keyPassword: signingType === 'custom' ? keyPassword : undefined,
+        validated: true,
+        validationDetails: keystoreValidation || undefined,
+      };
+
       const projectData = {
         name: appName || 'My Mobile App',
         websiteUrl,
@@ -208,6 +324,7 @@ export const CreateAppWizard: React.FC<CreateAppWizardProps> = ({
         iosTargetVersion,
         iosTeamId,
         iosAppName: iosAppName || appName,
+        signingConfig: signingConfigData,
       };
 
       // 1. Create project
@@ -217,12 +334,15 @@ export const CreateAppWizard: React.FC<CreateAppWizardProps> = ({
         body: JSON.stringify(projectData),
       });
 
-      if (!createRes.ok) throw new Error('Failed to create project');
+      if (!createRes.ok) {
+        const errData = await createRes.json();
+        throw new Error(errData.error || 'Failed to create project');
+      }
       const { project } = await createRes.json();
 
       let buildId;
 
-      // 2. Trigger initial build
+      // 2. Trigger initial build with validated signing config
       const isIos = buildType === 'ipa';
       const buildRes = await fetch(`/api/projects/${project.id}/build`, {
         method: 'POST',
@@ -230,17 +350,21 @@ export const CreateAppWizard: React.FC<CreateAppWizardProps> = ({
         body: JSON.stringify({
           platform: isIos ? 'ios' : 'android',
           buildType,
+          signingConfig: signingConfigData,
         }),
       });
 
       if (buildRes.ok) {
         const buildData = await buildRes.json();
         buildId = buildData.build?.id;
+      } else {
+        const buildErr = await buildRes.json();
+        throw new Error(buildErr.details || buildErr.error || 'Build dispatch rejected by worker');
       }
 
       onProjectCreated(project, buildId);
     } catch (err: any) {
-      alert(`Error creating app: ${err.message}`);
+      alert(`Build Submission Error: ${err.message}`);
     } finally {
       setIsSubmitting(false);
     }
@@ -939,8 +1063,195 @@ export const CreateAppWizard: React.FC<CreateAppWizardProps> = ({
               <div>
                 <h2 className="text-lg font-bold text-slate-900">Compile & Build Mobile App</h2>
                 <p className="text-xs text-slate-500 mt-1">
-                  Choose your target platform packages to trigger the automated build pipeline.
+                  Choose your target platform packages and verify code signing credentials before job execution.
                 </p>
+              </div>
+
+              {/* Code Signing & Keystore Section */}
+              <div className="p-4 sm:p-5 bg-white rounded-xl border border-slate-200 shadow-2xs space-y-4">
+                <div className="flex items-center justify-between pb-3 border-b border-slate-100">
+                  <div className="flex items-center gap-2">
+                    <ShieldCheck className="w-4 h-4 text-indigo-600" />
+                    <span className="text-xs font-bold text-slate-900">Code Signing & Keystore Configuration</span>
+                  </div>
+                  <span className="text-[10px] font-semibold text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded border border-emerald-200">
+                    Pre-Build Verified
+                  </span>
+                </div>
+
+                {/* Signing Type Toggle */}
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setSigningType('managed');
+                      setKeystoreValidationError(null);
+                    }}
+                    className={`p-3 rounded-lg border text-left transition-all cursor-pointer ${
+                      signingType === 'managed'
+                        ? 'border-indigo-600 bg-indigo-50/70 ring-1 ring-indigo-600'
+                        : 'border-slate-200 bg-slate-50/50 hover:bg-slate-100/50'
+                    }`}
+                  >
+                    <div className="flex items-center justify-between mb-0.5">
+                      <span className="text-xs font-bold text-slate-900">Managed Cloud Keystore</span>
+                      <span className="text-[10px] font-mono font-bold text-emerald-700 bg-emerald-100 px-1 py-0.2 rounded">
+                        Recommended
+                      </span>
+                    </div>
+                    <p className="text-[11px] text-slate-500 leading-tight">
+                      Auto-signed with 2048-bit RSA release keys & dual APK v1+v2 scheme for instant phone installation.
+                    </p>
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setSigningType('custom');
+                      setKeystoreValidationError(null);
+                    }}
+                    className={`p-3 rounded-lg border text-left transition-all cursor-pointer ${
+                      signingType === 'custom'
+                        ? 'border-indigo-600 bg-indigo-50/70 ring-1 ring-indigo-600'
+                        : 'border-slate-200 bg-slate-50/50 hover:bg-slate-100/50'
+                    }`}
+                  >
+                    <div className="flex items-center justify-between mb-0.5">
+                      <span className="text-xs font-bold text-slate-900">Custom Keystore (BYOK)</span>
+                      <span className="text-[10px] font-mono font-bold text-indigo-700 bg-indigo-100 px-1 py-0.2 rounded">
+                        .jks / .p12
+                      </span>
+                    </div>
+                    <p className="text-[11px] text-slate-500 leading-tight">
+                      Upload your organization release key (.jks, .keystore, .p12, .pem) with custom alias & password.
+                    </p>
+                  </button>
+                </div>
+
+                {/* Custom Keystore Form */}
+                {signingType === 'custom' && (
+                  <div className="p-3.5 bg-slate-50 border border-slate-200 rounded-lg space-y-3 animate-in fade-in">
+                    <div>
+                      <label className="block text-xs font-semibold text-slate-700 mb-1">
+                        Upload Keystore File (.jks, .keystore, .p12, .pem) <span className="text-rose-500">*</span>
+                      </label>
+                      <label className="border border-dashed border-slate-300 hover:border-indigo-500 bg-white rounded-lg p-3 text-center cursor-pointer transition-colors block">
+                        <Upload className="w-4 h-4 text-slate-400 mx-auto mb-1" />
+                        <span className="text-xs font-semibold text-slate-800 block truncate">
+                          {keystoreFileName ? keystoreFileName : 'Choose or drag keystore file here'}
+                        </span>
+                        <input
+                          type="file"
+                          accept=".jks,.keystore,.p12,.pem,.crt"
+                          onChange={handleKeystoreUpload}
+                          className="hidden"
+                        />
+                      </label>
+                    </div>
+
+                    <div className="grid grid-cols-1 sm:grid-cols-3 gap-2.5">
+                      <div>
+                        <label className="block text-[11px] font-semibold text-slate-700 mb-1">
+                          Keystore Password <span className="text-rose-500">*</span>
+                        </label>
+                        <input
+                          type="password"
+                          value={keystorePassword}
+                          onChange={e => {
+                            setKeystorePassword(e.target.value);
+                            setKeystoreValidation(null);
+                          }}
+                          placeholder="Password"
+                          className="w-full px-2.5 py-1.5 text-xs bg-white border border-slate-200 rounded-md focus:outline-indigo-500"
+                        />
+                      </div>
+
+                      <div>
+                        <label className="block text-[11px] font-semibold text-slate-700 mb-1">
+                          Key Alias
+                        </label>
+                        <input
+                          type="text"
+                          value={keyAlias}
+                          onChange={e => {
+                            setKeyAlias(e.target.value);
+                            setKeystoreValidation(null);
+                          }}
+                          placeholder="e.g. release"
+                          className="w-full px-2.5 py-1.5 text-xs font-mono bg-white border border-slate-200 rounded-md focus:outline-indigo-500"
+                        />
+                      </div>
+
+                      <div>
+                        <label className="block text-[11px] font-semibold text-slate-700 mb-1">
+                          Key Password (Optional)
+                        </label>
+                        <input
+                          type="password"
+                          value={keyPassword}
+                          onChange={e => {
+                            setKeyPassword(e.target.value);
+                            setKeystoreValidation(null);
+                          }}
+                          placeholder="Same as keystore"
+                          className="w-full px-2.5 py-1.5 text-xs bg-white border border-slate-200 rounded-md focus:outline-indigo-500"
+                        />
+                      </div>
+                    </div>
+
+                    <div className="flex items-center justify-between pt-1">
+                      <button
+                        type="button"
+                        onClick={handleValidateKeystore}
+                        disabled={isValidatingKeystore}
+                        className="px-3 py-1.5 text-xs font-semibold text-slate-800 bg-white border border-slate-200 hover:bg-slate-50 rounded-md transition-colors flex items-center gap-1.5 cursor-pointer shadow-2xs"
+                      >
+                        {isValidatingKeystore ? (
+                          <>
+                            <RefreshCw className="w-3.5 h-3.5 animate-spin" />
+                            <span>Validating Credentials...</span>
+                          </>
+                        ) : (
+                          <>
+                            <KeyRound className="w-3.5 h-3.5 text-indigo-600" />
+                            <span>Validate Keystore Configuration</span>
+                          </>
+                        )}
+                      </button>
+                      <span className="text-[10px] text-slate-400">
+                        Pre-verifies key headers and password before build dispatch.
+                      </span>
+                    </div>
+                  </div>
+                )}
+
+                {/* Validation Error Banner */}
+                {keystoreValidationError && (
+                  <div className="p-3 bg-rose-50 border border-rose-200 rounded-lg flex items-start gap-2.5 text-xs">
+                    <AlertCircle className="w-4 h-4 text-rose-600 shrink-0 mt-0.5" />
+                    <div>
+                      <h4 className="font-bold text-rose-900">Signing Validation Failed</h4>
+                      <p className="text-[11px] text-rose-700 mt-0.5 leading-relaxed">{keystoreValidationError}</p>
+                    </div>
+                  </div>
+                )}
+
+                {/* Validation Success Banner */}
+                {keystoreValidation && keystoreValidation.valid && (
+                  <div className="p-3 bg-emerald-50 border border-emerald-200 rounded-lg space-y-1.5 text-xs">
+                    <div className="flex items-center gap-1.5 text-emerald-800 font-bold">
+                      <Check className="w-4 h-4 text-emerald-600" />
+                      <span>Keystore Verified & Ready for Worker Pipeline</span>
+                    </div>
+                    <div className="flex flex-wrap items-center gap-3 text-[11px] text-emerald-700">
+                      <span><strong>Format:</strong> {keystoreValidation.format}</span>
+                      <span><strong>Alias:</strong> {keystoreValidation.alias}</span>
+                      {keystoreValidation.certificate && (
+                        <span><strong>Key Spec:</strong> {keystoreValidation.certificate.keySize}-bit {keystoreValidation.certificate.keyAlgorithm}</span>
+                      )}
+                    </div>
+                  </div>
+                )}
               </div>
 
               {/* Package Format Selection */}

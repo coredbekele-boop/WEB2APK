@@ -1,7 +1,13 @@
 import JSZip from 'jszip';
 import crypto from 'crypto';
+import fs from 'fs';
+import path from 'path';
+import { execFile } from 'child_process';
+import util from 'util';
 import type { Project, Build } from '../types';
 import { generateBinaryAndroidManifest } from './axmlBuilder';
+
+const execFileAsync = util.promisify(execFile);
 
 // A minimal valid PNG binary for icons
 const VALID_ICON_PNG = Buffer.from(
@@ -280,6 +286,49 @@ function createApkSigningMeta(project: Project): { manifest: string; certSf: str
  * resources.arsc table, and release signature block.
  */
 export async function createRealApkBuffer(project: Project, build?: Build): Promise<Buffer> {
+  // Check if genuine base APK template and Python signer script are available
+  const baseApkCandidates = [
+    path.resolve(process.cwd(), 'public/templates/base.apk'),
+    '/tmp/apk_template/base.apk',
+  ];
+  const pythonScript = path.resolve(process.cwd(), 'scripts/build_signed_apk.py');
+  const certPem = path.resolve(process.cwd(), 'resources/keystore/cert.pem');
+  const keyPem = path.resolve(process.cwd(), 'resources/keystore/key.pem');
+
+  let baseApkPath = baseApkCandidates.find(p => fs.existsSync(p));
+
+  if (baseApkPath && fs.existsSync(pythonScript) && fs.existsSync(certPem) && fs.existsSync(keyPem)) {
+    try {
+      const outDir = path.resolve('/tmp/generated_apks');
+      if (!fs.existsSync(outDir)) {
+        fs.mkdirSync(outDir, { recursive: true });
+      }
+      const outApk = path.join(outDir, `${project.packageName}-v${project.versionName}-${Date.now()}.apk`);
+      
+      await execFileAsync('python3', [
+        pythonScript,
+        '--src', baseApkPath,
+        '--out', outApk,
+        '--url', project.websiteUrl,
+        '--package', project.packageName,
+        '--app-name', project.name,
+        '--version-name', project.versionName || '1.0.0',
+        '--version-code', String(project.versionCode || 1),
+        '--cert', certPem,
+        '--key', keyPem,
+      ]);
+
+      if (fs.existsSync(outApk)) {
+        const buffer = await fs.promises.readFile(outApk);
+        // Clean up temporary output file
+        fs.promises.unlink(outApk).catch(() => {});
+        return buffer;
+      }
+    } catch (pyErr) {
+      console.warn('[APK Builder] Python signer encountered error, falling back to internal binary synthesizer:', pyErr);
+    }
+  }
+
   const zip = new JSZip();
 
   // 1. Android Manifest (Compiled Binary AXML format for native Android PackageInstaller)

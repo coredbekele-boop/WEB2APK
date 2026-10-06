@@ -68,10 +68,44 @@ export interface Project {
   iosAppName?: string;
   // GitHub Integration & CI/CD
   github?: GitHubIntegration;
+  // Code Signing & Keystore Configuration
+  signingConfig?: SigningConfig;
   status: 'draft' | 'ready' | 'building' | 'failed';
   lastBuildId?: string;
   createdAt: string;
   updatedAt: string;
+}
+
+export interface SigningConfig {
+  type: 'managed' | 'custom';
+  keystoreFile?: string;
+  keystoreBase64?: string;
+  keystorePassword?: string;
+  keyAlias?: string;
+  keyPassword?: string;
+  validated?: boolean;
+  validatedAt?: string;
+  validationDetails?: SigningValidationResult;
+}
+
+export interface SigningValidationResult {
+  valid: boolean;
+  format?: string;
+  alias?: string;
+  certificate?: {
+    subject: string;
+    issuer: string;
+    validFrom: string;
+    validTo: string;
+    sha1?: string;
+    sha256?: string;
+    keyAlgorithm: string;
+    keySize: number;
+  };
+  hasPrivateKey?: boolean;
+  message?: string;
+  error?: string;
+  details?: string;
 }
 
 export interface GitHubWebhookDelivery {

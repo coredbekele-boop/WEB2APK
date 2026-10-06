@@ -70,13 +70,8 @@ let projects: Project[] = [
     primaryColor: '#4F46E5',
     secondaryColor: '#06B6D4',
     splashBgColor: '#0F172A',
-    navigationType: 'bottom',
-    navItems: [
-      { id: '1', label: 'Home', url: 'https://nordicliving.store', icon: 'Home' },
-      { id: '2', label: 'Catalog', url: 'https://nordicliving.store/catalog', icon: 'ShoppingBag' },
-      { id: '3', label: 'Wishlist', url: 'https://nordicliving.store/saved', icon: 'Heart' },
-      { id: '4', label: 'Account', url: 'https://nordicliving.store/account', icon: 'User' },
-    ],
+    navigationType: 'none',
+    navItems: [],
     permissions: {
       javascript: true,
       cookies: true,
@@ -152,12 +147,8 @@ let projects: Project[] = [
     primaryColor: '#0284C7',
     secondaryColor: '#38BDF8',
     splashBgColor: '#0B132B',
-    navigationType: 'top',
-    navItems: [
-      { id: '1', label: 'Feed', url: 'https://techpulse.dev', icon: 'Radio' },
-      { id: '2', label: 'Topics', url: 'https://techpulse.dev/topics', icon: 'Layers' },
-      { id: '3', label: 'Bookmarks', url: 'https://techpulse.dev/saved', icon: 'Bookmark' },
-    ],
+    navigationType: 'none',
+    navItems: [],
     permissions: {
       javascript: true,
       cookies: true,
@@ -195,11 +186,8 @@ let projects: Project[] = [
     primaryColor: '#7C3AED',
     secondaryColor: '#A78BFA',
     splashBgColor: '#1E1B4B',
-    navigationType: 'hamburger',
-    navItems: [
-      { id: '1', label: 'Docs', url: 'https://cloudcraft.io/docs', icon: 'Book' },
-      { id: '2', label: 'Components', url: 'https://cloudcraft.io/components', icon: 'Cpu' },
-    ],
+    navigationType: 'none',
+    navItems: [],
     permissions: {
       javascript: true,
       cookies: true,

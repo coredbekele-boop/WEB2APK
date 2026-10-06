@@ -3,7 +3,6 @@ import {
   Globe,
   Smartphone,
   Palette,
-  Compass,
   Sliders,
   Settings2,
   Eye,
@@ -59,13 +58,9 @@ export const CreateAppWizard: React.FC<CreateAppWizardProps> = ({
   const [iconUrl, setIconUrl] = useState('');
   const [splashUrl, setSplashUrl] = useState('');
 
-  // Step 4: Navigation
-  const [navigationType, setNavigationType] = useState<NavigationType>('bottom');
-  const [navItems, setNavItems] = useState<NavItem[]>([
-    { id: '1', label: 'Home', url: '/', icon: 'Home' },
-    { id: '2', label: 'Shop', url: '/shop', icon: 'ShoppingBag' },
-    { id: '3', label: 'Account', url: '/account', icon: 'User' },
-  ]);
+  // Navigation & Items
+  const [navigationType, setNavigationType] = useState<NavigationType>('website');
+  const [navItems, setNavItems] = useState<NavItem[]>([]);
 
   // Step 5: App Behavior
   const [permissions, setPermissions] = useState({
@@ -84,8 +79,8 @@ export const CreateAppWizard: React.FC<CreateAppWizardProps> = ({
     deepLinks: true,
   });
 
-  // Step 6: Platform Settings (Android & iOS)
-  const [targetPlatforms, setTargetPlatforms] = useState<('android' | 'ios')[]>(['android', 'ios']);
+  // Step 5: Platform Settings (Android & iOS)
+  const [targetPlatforms, setTargetPlatforms] = useState<('android' | 'ios')[]>(['android']);
   const [platformTab, setPlatformTab] = useState<'android' | 'ios'>('android');
   const [versionName, setVersionName] = useState('1.0.0');
   const [versionCode, setVersionCode] = useState(1);
@@ -99,7 +94,7 @@ export const CreateAppWizard: React.FC<CreateAppWizardProps> = ({
   const [iosTeamId, setIosTeamId] = useState('');
   const [iosAppName, setIosAppName] = useState('');
 
-  const [buildType, setBuildType] = useState<'both' | 'ipa' | 'apk' | 'bundle'>('both');
+  const [buildType, setBuildType] = useState<'apk' | 'bundle' | 'ipa'>('apk');
 
   // Run analysis if initialUrl provided
   useEffect(() => {
@@ -227,44 +222,20 @@ export const CreateAppWizard: React.FC<CreateAppWizardProps> = ({
 
       let buildId;
 
-      // 2. Trigger initial build(s)
-      if (buildType === 'both') {
-        // Trigger both Android APK and iOS IPA
-        const [androidBuildRes, iosBuildRes] = await Promise.all([
-          fetch(`/api/projects/${project.id}/build`, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ platform: 'android', buildType: 'apk' }),
-          }),
-          fetch(`/api/projects/${project.id}/build`, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ platform: 'ios', buildType: 'ipa' }),
-          }),
-        ]);
+      // 2. Trigger initial build
+      const isIos = buildType === 'ipa';
+      const buildRes = await fetch(`/api/projects/${project.id}/build`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          platform: isIos ? 'ios' : 'android',
+          buildType,
+        }),
+      });
 
-        if (iosBuildRes.ok) {
-          const iosData = await iosBuildRes.json();
-          buildId = iosData.build?.id;
-        } else if (androidBuildRes.ok) {
-          const androidData = await androidBuildRes.json();
-          buildId = androidData.build?.id;
-        }
-      } else {
-        const isIos = buildType === 'ipa';
-        const buildRes = await fetch(`/api/projects/${project.id}/build`, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            platform: isIos ? 'ios' : 'android',
-            buildType,
-          }),
-        });
-
-        if (buildRes.ok) {
-          const buildData = await buildRes.json();
-          buildId = buildData.build?.id;
-        }
+      if (buildRes.ok) {
+        const buildData = await buildRes.json();
+        buildId = buildData.build?.id;
       }
 
       onProjectCreated(project, buildId);
@@ -294,11 +265,10 @@ export const CreateAppWizard: React.FC<CreateAppWizardProps> = ({
     { num: 1, title: 'Website', icon: Globe },
     { num: 2, title: 'Details', icon: Smartphone },
     { num: 3, title: 'Branding', icon: Palette },
-    { num: 4, title: 'Navigation', icon: Compass },
-    { num: 5, title: 'Behavior', icon: Sliders },
-    { num: 6, title: 'Platforms', icon: Settings2 },
-    { num: 7, title: 'Preview', icon: Eye },
-    { num: 8, title: 'Build', icon: Hammer },
+    { num: 4, title: 'Behavior', icon: Sliders },
+    { num: 5, title: 'Platforms', icon: Settings2 },
+    { num: 6, title: 'Preview', icon: Eye },
+    { num: 7, title: 'Build', icon: Hammer },
   ];
 
   return (
@@ -310,7 +280,7 @@ export const CreateAppWizard: React.FC<CreateAppWizardProps> = ({
             Create App Wizard
           </span>
           <h1 className="text-2xl font-bold text-slate-900 mt-1">Configure Your Mobile Application</h1>
-          <p className="text-xs text-slate-500 mt-0.5">Step {currentStep} of 8: {steps[currentStep - 1].title}</p>
+          <p className="text-xs text-slate-500 mt-0.5">Step {currentStep} of 7: {steps[currentStep - 1].title}</p>
         </div>
         <button
           onClick={onCancel}
@@ -399,9 +369,6 @@ export const CreateAppWizard: React.FC<CreateAppWizardProps> = ({
             <div className="space-y-6 animate-in fade-in">
               <div>
                 <h2 className="text-lg font-bold text-slate-900">Enter Your Website URL</h2>
-                <p className="text-xs text-slate-500 mt-1">
-                  We'll test if your site is reachable, inspect responsive layout markers, and extract branding metadata.
-                </p>
               </div>
 
               <div>
@@ -540,7 +507,7 @@ export const CreateAppWizard: React.FC<CreateAppWizardProps> = ({
               <div>
                 <h2 className="text-lg font-bold text-slate-900">Branding & Color Palette</h2>
                 <p className="text-xs text-slate-500 mt-1">
-                  Configure status bar, navigation tints, app icons, and launch splash screens.
+                  Configure status bar, brand tints, app icons, and launch splash screens.
                 </p>
               </div>
 
@@ -630,91 +597,8 @@ export const CreateAppWizard: React.FC<CreateAppWizardProps> = ({
             </div>
           )}
 
-          {/* STEP 4: NAVIGATION */}
+          {/* STEP 4: APP BEHAVIOR */}
           {currentStep === 4 && (
-            <div className="space-y-6 animate-in fade-in">
-              <div>
-                <h2 className="text-lg font-bold text-slate-900">Mobile App Navigation</h2>
-                <p className="text-xs text-slate-500 mt-1">
-                  Choose how users navigate between primary destinations.
-                </p>
-              </div>
-
-              <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
-                {[
-                  { id: 'bottom', label: 'Bottom Bar', desc: 'Native 3-5 tabs' },
-                  { id: 'top', label: 'Top Navigation', desc: 'Header tab bar' },
-                  { id: 'hamburger', label: 'Hamburger Menu', desc: 'Side drawer' },
-                  { id: 'website', label: 'Website Navigation', desc: 'Use web nav' },
-                  { id: 'none', label: 'No Custom Bar', desc: 'Clean fullscreen' },
-                ].map(opt => (
-                  <button
-                    key={opt.id}
-                    type="button"
-                    onClick={() => setNavigationType(opt.id as NavigationType)}
-                    className={`p-3 text-left rounded-xl border transition-all cursor-pointer ${
-                      navigationType === opt.id
-                        ? 'border-indigo-600 bg-indigo-50/50 ring-1 ring-indigo-600'
-                        : 'border-slate-200 bg-white hover:bg-slate-50'
-                    }`}
-                  >
-                    <span className="text-xs font-bold text-slate-900 block">{opt.label}</span>
-                    <span className="text-[11px] text-slate-500">{opt.desc}</span>
-                  </button>
-                ))}
-              </div>
-
-              {navigationType === 'bottom' && (
-                <div className="space-y-3 pt-2">
-                  <div className="flex items-center justify-between">
-                    <span className="text-xs font-bold text-slate-900">Bottom Navigation Items</span>
-                    <button
-                      type="button"
-                      onClick={handleAddNavItem}
-                      className="inline-flex items-center gap-1 text-xs text-indigo-600 font-semibold hover:underline"
-                    >
-                      <Plus className="w-3.5 h-3.5" />
-                      Add Item
-                    </button>
-                  </div>
-
-                  <div className="space-y-2">
-                    {navItems.map((item, idx) => (
-                      <div
-                        key={item.id}
-                        className="flex items-center gap-2 p-2 bg-slate-50 rounded-lg border border-slate-200"
-                      >
-                        <input
-                          type="text"
-                          value={item.label}
-                          onChange={e => handleUpdateNavItem(item.id, 'label', e.target.value)}
-                          placeholder="Label"
-                          className="w-24 px-2 py-1 text-xs bg-white border border-slate-200 rounded"
-                        />
-                        <input
-                          type="text"
-                          value={item.url}
-                          onChange={e => handleUpdateNavItem(item.id, 'url', e.target.value)}
-                          placeholder="URL path"
-                          className="flex-1 px-2 py-1 text-xs font-mono bg-white border border-slate-200 rounded"
-                        />
-                        <button
-                          type="button"
-                          onClick={() => handleRemoveNavItem(item.id)}
-                          className="p-1 text-slate-400 hover:text-red-600 rounded"
-                        >
-                          <Trash2 className="w-4 h-4" />
-                        </button>
-                      </div>
-                    ))}
-                  </div>
-                </div>
-              )}
-            </div>
-          )}
-
-          {/* STEP 5: APP BEHAVIOR */}
-          {currentStep === 5 && (
             <div className="space-y-6 animate-in fade-in">
               <div>
                 <h2 className="text-lg font-bold text-slate-900">App Behavior & Permissions</h2>
@@ -772,8 +656,8 @@ export const CreateAppWizard: React.FC<CreateAppWizardProps> = ({
             </div>
           )}
 
-          {/* STEP 6: PLATFORM SETTINGS */}
-          {currentStep === 6 && (
+          {/* STEP 5: PLATFORM SETTINGS */}
+          {currentStep === 5 && (
             <div className="space-y-6 animate-in fade-in">
               <div>
                 <h2 className="text-lg font-bold text-slate-900">Mobile Platform & SDK Settings</h2>
@@ -787,43 +671,36 @@ export const CreateAppWizard: React.FC<CreateAppWizardProps> = ({
                 <label className="block text-xs font-semibold text-slate-700 mb-1.5">
                   Target Mobile Platforms
                 </label>
-                <div className="grid grid-cols-3 gap-3">
+                <div className="grid grid-cols-2 gap-3">
                   <button
                     type="button"
-                    onClick={() => setTargetPlatforms(['android', 'ios'])}
-                    className={`py-2 px-3 text-left text-xs font-semibold rounded-xl border transition-all cursor-pointer ${
-                      targetPlatforms.includes('android') && targetPlatforms.includes('ios')
-                        ? 'border-indigo-600 bg-indigo-50 text-indigo-900 shadow-2xs'
-                        : 'border-slate-200 bg-white text-slate-700 hover:bg-slate-50'
-                    }`}
-                  >
-                    <span className="block font-bold">Universal App</span>
-                    <span className="text-[11px] font-normal text-slate-500">Android & iOS</span>
-                  </button>
-
-                  <button
-                    type="button"
-                    onClick={() => setTargetPlatforms(['android'])}
+                    onClick={() => {
+                      setTargetPlatforms(['android']);
+                      setPlatformTab('android');
+                    }}
                     className={`py-2 px-3 text-left text-xs font-semibold rounded-xl border transition-all cursor-pointer ${
                       targetPlatforms.length === 1 && targetPlatforms[0] === 'android'
                         ? 'border-indigo-600 bg-indigo-50 text-indigo-900 shadow-2xs'
                         : 'border-slate-200 bg-white text-slate-700 hover:bg-slate-50'
                     }`}
                   >
-                    <span className="block font-bold">Android Only</span>
+                    <span className="block font-bold">Android</span>
                     <span className="text-[11px] font-normal text-slate-500">APK & AAB</span>
                   </button>
 
                   <button
                     type="button"
-                    onClick={() => setTargetPlatforms(['ios'])}
+                    onClick={() => {
+                      setTargetPlatforms(['ios']);
+                      setPlatformTab('ios');
+                    }}
                     className={`py-2 px-3 text-left text-xs font-semibold rounded-xl border transition-all cursor-pointer ${
                       targetPlatforms.length === 1 && targetPlatforms[0] === 'ios'
                         ? 'border-indigo-600 bg-indigo-50 text-indigo-900 shadow-2xs'
                         : 'border-slate-200 bg-white text-slate-700 hover:bg-slate-50'
                     }`}
                   >
-                    <span className="block font-bold">iOS Only</span>
+                    <span className="block font-bold">iOS</span>
                     <span className="text-[11px] font-normal text-slate-500">IPA & Xcode</span>
                   </button>
                 </div>
@@ -1015,8 +892,8 @@ export const CreateAppWizard: React.FC<CreateAppWizardProps> = ({
             </div>
           )}
 
-          {/* STEP 7: PREVIEW */}
-          {currentStep === 7 && (
+          {/* STEP 6: PREVIEW */}
+          {currentStep === 6 && (
             <div className="space-y-6 animate-in fade-in">
               <div>
                 <h2 className="text-lg font-bold text-slate-900">Live Device Simulation</h2>
@@ -1051,13 +928,13 @@ export const CreateAppWizard: React.FC<CreateAppWizardProps> = ({
               </div>
 
               <p className="text-xs text-slate-500 leading-relaxed">
-                Use the device switcher bar above the simulated phone screen to inspect the native iOS WKWebView navigation, Dynamic Island header, and Android 14 adaptive launcher icon.
+                Use the device switcher bar above the simulated phone screen to inspect the native iOS WKWebView viewport, Dynamic Island header, and Android 14 adaptive launcher icon.
               </p>
             </div>
           )}
 
-          {/* STEP 8: BUILD */}
-          {currentStep === 8 && (
+          {/* STEP 7: BUILD */}
+          {currentStep === 7 && (
             <div className="space-y-6 animate-in fade-in">
               <div>
                 <h2 className="text-lg font-bold text-slate-900">Compile & Build Mobile App</h2>
@@ -1071,47 +948,7 @@ export const CreateAppWizard: React.FC<CreateAppWizardProps> = ({
                 <label className="block text-xs font-semibold text-slate-700 mb-2">
                   Select Build Output
                 </label>
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                  <button
-                    type="button"
-                    onClick={() => setBuildType('both')}
-                    className={`p-4 rounded-xl border text-left transition-all cursor-pointer ${
-                      buildType === 'both'
-                        ? 'border-indigo-600 bg-indigo-50/60 ring-1 ring-indigo-600'
-                        : 'border-slate-200 bg-white hover:bg-slate-50'
-                    }`}
-                  >
-                    <div className="flex items-center justify-between mb-1">
-                      <span className="text-sm font-bold text-slate-900">Dual Build: Android APK & iOS IPA</span>
-                      <span className="text-[10px] font-mono text-indigo-600 font-semibold bg-indigo-100 px-1.5 py-0.5 rounded">
-                        Recommended
-                      </span>
-                    </div>
-                    <p className="text-xs text-slate-500">
-                      Compile both platforms simultaneously. Download Android APK and iOS IPA in one unified workflow.
-                    </p>
-                  </button>
-
-                  <button
-                    type="button"
-                    onClick={() => setBuildType('ipa')}
-                    className={`p-4 rounded-xl border text-left transition-all cursor-pointer ${
-                      buildType === 'ipa'
-                        ? 'border-indigo-600 bg-indigo-50/60 ring-1 ring-indigo-600'
-                        : 'border-slate-200 bg-white hover:bg-slate-50'
-                    }`}
-                  >
-                    <div className="flex items-center justify-between mb-1">
-                      <span className="text-sm font-bold text-slate-900">iOS Standalone IPA</span>
-                      <span className="text-[10px] font-mono text-slate-700 font-semibold bg-slate-100 px-1.5 py-0.5 rounded">
-                        Apple iOS
-                      </span>
-                    </div>
-                    <p className="text-xs text-slate-500">
-                      Signed IPA release package and full Xcode Swift project for TestFlight and Apple App Store.
-                    </p>
-                  </button>
-
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
                   <button
                     type="button"
                     onClick={() => setBuildType('apk')}
@@ -1149,6 +986,26 @@ export const CreateAppWizard: React.FC<CreateAppWizardProps> = ({
                     </div>
                     <p className="text-xs text-slate-500">
                       Google Play Store App Bundle format with App Signing scheme verification.
+                    </p>
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={() => setBuildType('ipa')}
+                    className={`p-4 rounded-xl border text-left transition-all cursor-pointer ${
+                      buildType === 'ipa'
+                        ? 'border-indigo-600 bg-indigo-50/60 ring-1 ring-indigo-600'
+                        : 'border-slate-200 bg-white hover:bg-slate-50'
+                    }`}
+                  >
+                    <div className="flex items-center justify-between mb-1">
+                      <span className="text-sm font-bold text-slate-900">iOS Standalone IPA</span>
+                      <span className="text-[10px] font-mono text-slate-700 font-semibold bg-slate-100 px-1.5 py-0.5 rounded">
+                        Apple iOS
+                      </span>
+                    </div>
+                    <p className="text-xs text-slate-500">
+                      Signed IPA release package and full Xcode Swift project for TestFlight and Apple App Store.
                     </p>
                   </button>
                 </div>
@@ -1201,11 +1058,11 @@ export const CreateAppWizard: React.FC<CreateAppWizardProps> = ({
                     <>
                       <Hammer className="w-4 h-4" />
                       <span>
-                        {buildType === 'both'
-                          ? 'Build Android APK & iOS IPA'
-                          : buildType === 'ipa'
+                        {buildType === 'ipa'
                           ? 'Build iOS IPA & Xcode Project'
-                          : 'Build Android App'}
+                          : buildType === 'bundle'
+                          ? 'Build Google Play AAB Bundle'
+                          : 'Build Android APK'}
                       </span>
                     </>
                   )}
@@ -1229,7 +1086,7 @@ export const CreateAppWizard: React.FC<CreateAppWizardProps> = ({
               <div />
             )}
 
-            {currentStep < 8 && (
+            {currentStep < 7 && (
               <button
                 type="button"
                 onClick={() => {

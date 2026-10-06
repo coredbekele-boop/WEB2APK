@@ -66,7 +66,7 @@ export const PricingView: React.FC<PricingViewProps> = ({
         'Full Kotlin (Android) & Swift (Xcode) source code ZIPs',
         'Universal Deep Linking (App Links & Universal Links)',
         'Camera, GPS geolocation & upload permissions',
-        'Custom native navigation bars',
+        'Full-screen immersive WebView engine',
         'Priority dual-platform build runner queue',
       ],
       cta: 'Current Active Plan',

@@ -81,8 +81,8 @@ export const TemplatesView: React.FC<TemplatesViewProps> = ({ onUseTemplate }) =
                   </div>
                   <div>
                     <h3 className="text-base font-bold text-slate-900">{tmpl.name}</h3>
-                    <span className="text-[11px] font-mono text-slate-400 capitalize">
-                      {tmpl.navigationType} Navigation
+                    <span className="text-[11px] font-mono text-slate-400">
+                      Full-Screen Native App
                     </span>
                   </div>
                 </div>

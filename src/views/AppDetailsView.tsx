@@ -278,8 +278,8 @@ export const AppDetailsView: React.FC<AppDetailsViewProps> = ({
                 </div>
 
                 <div>
-                  <span className="text-slate-500 block">Navigation Structure:</span>
-                  <span className="capitalize text-slate-900 mt-0.5 block">{project.navigationType} Navigation</span>
+                  <span className="text-slate-500 block">Display Mode:</span>
+                  <span className="text-slate-900 mt-0.5 block">Full Screen Edge-to-Edge</span>
                 </div>
               </div>
 

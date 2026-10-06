@@ -181,9 +181,6 @@ export const MyAppsView: React.FC<MyAppsViewProps> = ({
                       iOS
                     </span>
                   )}
-                  <span className="text-slate-500 bg-slate-50 px-2 py-0.5 rounded border border-slate-200 capitalize">
-                    {proj.navigationType} Nav
-                  </span>
                   {proj.github?.enabled ? (
                     <span
                       className="inline-flex items-center gap-1 font-semibold text-slate-800 bg-slate-100 px-2 py-0.5 rounded-full border border-slate-300"

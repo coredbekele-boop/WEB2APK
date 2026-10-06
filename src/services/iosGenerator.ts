@@ -174,7 +174,7 @@ struct ${appNameClean}App: App {
 export function generateSwiftContentView(project: Project): string {
   const primaryColor = project.primaryColor || '#4F46E5';
   const navType = project.navigationType;
-  const hasBottomNav = navType === 'bottom' && project.navItems && project.navItems.length > 0;
+  const hasBottomNav = false;
 
   return `//
 //  ContentView.swift

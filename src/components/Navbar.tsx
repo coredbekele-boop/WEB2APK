@@ -150,7 +150,7 @@ export const Navbar: React.FC<NavbarProps> = ({
       {mobileMenuOpen && (
         <div className="lg:hidden border-b border-slate-200 bg-white px-4 pt-3 pb-6 space-y-2.5 animate-in fade-in slide-in-from-top-2">
           <div className="text-[11px] font-bold uppercase tracking-wider text-slate-400 px-2 pt-1">
-            Main Navigation
+            Menu
           </div>
           <button
             onClick={() => {

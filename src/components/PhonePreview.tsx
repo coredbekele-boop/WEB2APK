@@ -8,18 +8,8 @@ import {
   Smartphone,
   Layers,
   Sparkles,
-  Wifi,
-  Battery,
-  Home,
-  ShoppingBag,
-  Heart,
-  User,
-  Radio,
-  Bookmark,
-  Book,
-  Cpu,
 } from 'lucide-react';
-import type { Project, NavigationType } from '../types';
+import type { Project } from '../types';
 
 interface PhonePreviewProps {
   project: Partial<Project>;
@@ -38,7 +28,6 @@ export const PhonePreview: React.FC<PhonePreviewProps> = ({
   const [iframeKey, setIframeKey] = useState(0);
   const [isLoading, setIsLoading] = useState(false);
   const [iframeError, setIframeError] = useState(false);
-  const [activeBottomNav, setActiveBottomNav] = useState(0);
 
   const targetUrl = overrideUrl || project.websiteUrl || 'https://yesufapp.com';
   const primaryColor = project.primaryColor || '#4F46E5';
@@ -48,27 +37,6 @@ export const PhonePreview: React.FC<PhonePreviewProps> = ({
     setIsLoading(true);
     setIframeKey(prev => prev + 1);
     setTimeout(() => setIsLoading(false), 900);
-  };
-
-  const getNavIcon = (iconName: string) => {
-    switch (iconName) {
-      case 'ShoppingBag':
-        return <ShoppingBag className="w-5 h-5" />;
-      case 'Heart':
-        return <Heart className="w-5 h-5" />;
-      case 'User':
-        return <User className="w-5 h-5" />;
-      case 'Radio':
-        return <Radio className="w-5 h-5" />;
-      case 'Bookmark':
-        return <Bookmark className="w-5 h-5" />;
-      case 'Book':
-        return <Book className="w-5 h-5" />;
-      case 'Cpu':
-        return <Cpu className="w-5 h-5" />;
-      default:
-        return <Home className="w-5 h-5" />;
-    }
   };
 
   return (
@@ -327,15 +295,6 @@ export const PhonePreview: React.FC<PhonePreviewProps> = ({
               </div>
             </div>
           )}
-
-          {/* Bottom Home Indicator Bar */}
-          <div className="h-5 bg-black flex items-center justify-center shrink-0">
-            <div
-              className={`h-1 bg-white/70 rounded-full ${
-                deviceMode === 'ios' ? 'w-32' : 'w-24'
-              }`}
-            />
-          </div>
         </div>
       </div>
     </div>

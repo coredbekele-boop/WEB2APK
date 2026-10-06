@@ -14,7 +14,6 @@ import {
   MapPin,
   UploadCloud,
   WifiOff,
-  Navigation,
   FolderGit2,
   Cpu,
   CheckCircle2,
@@ -137,9 +136,9 @@ export const LandingPage: React.FC<LandingPageProps> = ({
       icon: WifiOff,
     },
     {
-      title: 'Custom Native Navigation',
-      desc: 'Add optional native bottom navigation bar, top tabs, or drawer menus with customized icons.',
-      icon: Navigation,
+      title: 'Full-Screen Immersive WebView',
+      desc: 'Edge-to-edge hardware-accelerated viewport with pull-to-refresh, zoom controls, and smooth back-swipe gestures.',
+      icon: Smartphone,
     },
     {
       title: 'Full Source Code ZIP Export',
@@ -393,7 +392,7 @@ export const LandingPage: React.FC<LandingPageProps> = ({
             </div>
             <h3 className="text-base font-bold text-slate-900 mb-1">Customize Your App</h3>
             <p className="text-xs text-slate-600 leading-relaxed">
-              Brand your app with custom icons, splash screens, status bar colors, permissions (camera, location), and optional bottom navigation.
+              Brand your app with custom icons, splash screens, status bar colors, and native device permissions (camera, location, storage).
             </p>
           </div>
 

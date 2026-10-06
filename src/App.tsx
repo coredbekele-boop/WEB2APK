@@ -363,7 +363,11 @@ export default function App() {
   const isMarketingRoute = currentRoute === 'landing' || (currentRoute === 'pricing' && !isAuthenticated);
 
   return (
-    <div className="min-h-screen bg-[#F8FAFC] flex flex-col text-[#111827]">
+    <div
+      className={`${
+        isMarketingRoute ? 'min-h-screen flex flex-col' : 'h-screen h-dvh flex flex-col overflow-hidden'
+      } bg-[#F8FAFC] text-[#111827]`}
+    >
       {/* Toast Notification Container */}
       <ToastContainer toasts={toasts} onDismiss={dismissToast} />
 
@@ -422,7 +426,7 @@ export default function App() {
         </div>
       ) : (
         /* SAAS DASHBOARD WORKSPACE */
-        <div className="flex-1 flex min-h-screen">
+        <div className="flex-1 flex h-full min-h-0 overflow-hidden">
           <Sidebar
             currentRoute={currentRoute}
             onNavigate={handleNavigate}
@@ -432,7 +436,7 @@ export default function App() {
             appsCount={projects.length}
           />
 
-          <div className="flex-1 flex flex-col min-w-0">
+          <div className="flex-1 flex flex-col min-w-0 h-full min-h-0 overflow-hidden">
             <TopBar
               breadcrumbs={getBreadcrumbs()}
               onNavigate={handleNavigate}
@@ -447,7 +451,7 @@ export default function App() {
               isAuthenticated={isAuthenticated}
             />
 
-            <main className="flex-1 p-4 sm:p-6 lg:p-8 overflow-y-auto overscroll-y-contain">
+            <main className="flex-1 p-4 sm:p-6 lg:p-8 overflow-y-auto min-h-0">
               {currentRoute === 'dashboard' && (
                 <DashboardView
                   user={user}

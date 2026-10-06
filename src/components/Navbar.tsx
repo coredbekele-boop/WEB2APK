@@ -202,7 +202,7 @@ export const Navbar: React.FC<NavbarProps> = ({
                   }}
                   className="w-full py-2.5 text-center text-xs font-bold text-white bg-indigo-600 rounded-xl"
                 >
-                  Open Studio Dashboard
+                  Open Dashboard
                 </button>
                 {onSignOut && (
                   <button

@@ -35,7 +35,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
 }) => {
   const navItems = [
     { id: 'landing', label: 'Home Page', icon: Home },
-    { id: 'dashboard', label: 'Studio Dashboard', icon: LayoutDashboard },
+    { id: 'dashboard', label: 'Dashboard', icon: LayoutDashboard },
     { id: 'apps', label: 'My Apps', icon: Smartphone, badge: appsCount > 0 ? `${appsCount}` : undefined },
     { id: 'create-app', label: 'Create App', icon: PlusCircle, highlight: true },
     { id: 'builds', label: 'Builds & Releases', icon: Hammer },

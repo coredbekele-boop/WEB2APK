@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
+import { InstallModal } from '../components/InstallModal';
 import {
   Hammer,
   ArrowLeft,
@@ -144,6 +145,7 @@ export const BuildDetailsView: React.FC<BuildDetailsViewProps> = ({
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [elapsedSeconds, setElapsedSeconds] = useState(0);
+  const [isInstallModalOpen, setIsInstallModalOpen] = useState(false);
   const logsContainerRef = useRef<HTMLDivElement>(null);
   const userScrolledUpRef = useRef(false);
 
@@ -309,6 +311,16 @@ export const BuildDetailsView: React.FC<BuildDetailsViewProps> = ({
 
           {isCompleted && !isIos && (
             <>
+              <button
+                type="button"
+                onClick={() => setIsInstallModalOpen(true)}
+                className="inline-flex items-center gap-1.5 px-3.5 py-2 text-xs font-bold text-slate-900 bg-emerald-50 hover:bg-emerald-100 border border-emerald-300 rounded-xl transition-colors shadow-2xs cursor-pointer"
+                title="Scan QR Code to install APK on Android smartphone"
+              >
+                <Smartphone className="w-3.5 h-3.5 text-emerald-600" />
+                <span>Install on Smartphone</span>
+              </button>
+
               <a
                 href={`/api/builds/${build.id}/download-apk`}
                 download
@@ -661,16 +673,35 @@ export const BuildDetailsView: React.FC<BuildDetailsViewProps> = ({
               </p>
             </div>
           </div>
-          <a
-            href={isIos ? `/api/builds/${build.id}/download-ipa` : `/api/builds/${build.id}/download-apk`}
-            download
-            className="px-5 py-2.5 font-bold text-white bg-emerald-600 hover:bg-emerald-700 rounded-xl transition-colors shadow-xs shrink-0 cursor-pointer flex items-center gap-1.5"
-          >
-            <Download className="w-4 h-4" />
-            <span>{isIos ? 'Download Release IPA' : 'Download Release APK'}</span>
-          </a>
+          <div className="flex items-center gap-2">
+            {!isIos && (
+              <button
+                type="button"
+                onClick={() => setIsInstallModalOpen(true)}
+                className="px-4 py-2.5 font-bold text-slate-800 bg-white hover:bg-slate-50 border border-slate-300 rounded-xl transition-colors shadow-2xs shrink-0 cursor-pointer flex items-center gap-1.5"
+              >
+                <Smartphone className="w-4 h-4 text-emerald-600" />
+                <span>Scan QR to Install</span>
+              </button>
+            )}
+            <a
+              href={isIos ? `/api/builds/${build.id}/download-ipa` : `/api/builds/${build.id}/download-apk`}
+              download
+              className="px-5 py-2.5 font-bold text-white bg-emerald-600 hover:bg-emerald-700 rounded-xl transition-colors shadow-xs shrink-0 cursor-pointer flex items-center gap-1.5"
+            >
+              <Download className="w-4 h-4" />
+              <span>{isIos ? 'Download Release IPA' : 'Download Release APK'}</span>
+            </a>
+          </div>
         </div>
       )}
+
+      {/* Smartphone QR Code & Installation Modal */}
+      <InstallModal
+        isOpen={isInstallModalOpen}
+        onClose={() => setIsInstallModalOpen(false)}
+        build={build}
+      />
     </div>
   );
 };
